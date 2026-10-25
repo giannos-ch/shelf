@@ -3,6 +3,8 @@
   import { FitAddon } from '@xterm/addon-fit';
   import { WebLinksAddon } from '@xterm/addon-web-links';
   import { send } from './conn.js';
+  import { requestCompletion } from './complete.js';
+  import Completions from './Completions.svelte';
   import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
@@ -93,13 +95,16 @@
     {#if pane.status !== 'running' && !pane.gotOutput}<div class="noout">no output</div>{/if}
   </div>
   {#if pane.status !== 'running'}
+    {#if ui.comp && ui.comp.input === inputEl}<Completions />{/if}
     <div class="pane-prompt">
       <span class="where"><bdi>{tilde(pane.cwd)} ❯</bdi></span>
       <input
         bind:this={inputEl} spellcheck="false" autocomplete="off" placeholder="run here… (i)"
+        oninput={() => (ui.comp = null)}
         onfocus={() => { select(pane.id); ui.mode = 'insert'; }}
         onkeydown={(e) => {
           if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; }
+          else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.value = pane.cmd; }
         }}
       />

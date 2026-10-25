@@ -19,7 +19,8 @@ export const SHORTCUTS = [
   { mode: 'prompt', label: 'Esc', keys: ['Escape'], desc: 'View mode (closes completions first)', run: () => (ui.comp ? (ui.comp = null) : S.setMode('view')) },
   { mode: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+l'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
 
-  { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode', run: () => S.setMode('view') },
+  { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode (closes completions first)', run: () => (ui.comp ? (ui.comp = null) : S.setMode('view')) },
+  { mode: 'insert', label: 'Tab', desc: 'On a finished terminal: complete' },
   { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal' },
   { mode: 'insert', label: '↑', desc: 'On a finished terminal: recall its last command' },
   { mode: 'insert', label: 'Shift+Esc', keys: ['Shift+Escape'], desc: 'Send Esc to the program', run: () => S.sendEsc() },

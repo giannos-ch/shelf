@@ -172,7 +172,7 @@ class Session extends EventEmitter {
       case 'resize': run?.pty.resize(Math.max(2, msg.cols | 0), Math.max(1, msg.rows | 0)); break;
       case 'kill': run?.pty.kill(); break;
       case 'complete':
-        complete(this.stateFor(msg.tab), String(msg.line || ''), (r) => this.emit('message', { type: 'completions', reqId: msg.reqId, ...r }));
+        complete({ ...this.stateFor(msg.tab), ...(msg.cwd && { cwd: String(msg.cwd) }) }, String(msg.line || ''), (r) => this.emit('message', { type: 'completions', reqId: msg.reqId, ...r }));
         break;
     }
   }
