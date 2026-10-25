@@ -150,6 +150,15 @@ kbd {
 .pane-body { position: relative; flex: 1; min-height: 0; padding: 6px 4px 4px 10px; }
 .pane-body .term { width: 100%; height: 100%; }
 .pane-body .noout { position: absolute; left: 12px; top: 6px; color: var(--muted); font: italic 12px var(--mono); }
+.pane-prompt {
+  flex: none; display: flex; align-items: center; gap: 8px; padding: 3px 8px 4px 10px;
+  border-top: 1px solid var(--line); font: 12px var(--mono);
+}
+.pane-prompt .where { color: var(--accent); white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+.pane-prompt input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; padding: 2px 0;
+}
+.pane.insert .pane-prompt { background: rgba(227,179,65,.06); }
 .xterm .xterm-viewport { background: transparent !important; }
 .xterm-viewport::-webkit-scrollbar { width: 8px; }
 .xterm-viewport::-webkit-scrollbar-thumb { background: #2b3240; border-radius: 4px; }

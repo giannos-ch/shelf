@@ -65,12 +65,12 @@ function onMessage(m) {
   const p = m.id ? paneById(m.id) : null;
   switch (m.type) {
     case 'state': ui.home = m.home; if (m.tab && tabById(m.tab)) tabById(m.tab).cwd = m.cwd; break;
-    case 'started': if (p) p.cwd = m.cwd; break;
+    case 'started': if (p) p.cwd = p.runCwd = m.cwd; break;
     case 'data':
       if (p && !p.gotOutput) p.gotOutput = true;
       terms.get(m.id)?.term.write(m.data);
       break;
-    case 'exit': if (p) finish(p, m.code, m.ms); break;
+    case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms); } break;
     case 'completions': handlers.completions?.(m); break;
   }
 }
@@ -83,15 +83,16 @@ function finish(p, code, ms, reason = null) {
     t.term.options.cursorBlink = false;
     t.term.write('\x1b[?25l');
   }
-  if (ui.mode === 'insert' && selected() === p) setMode('view');
+  // Insert mode follows the terminal into its own prompt.
+  if (ui.mode === 'insert' && selected() === p) tick().then(() => setMode('insert'));
 }
 
 // ---------------------------------------------------------------- modes
 export function setMode(mode) {
   if (mode === 'insert') {
-    const t = terms.get(selected()?.id);
+    const p = selected(), t = terms.get(p?.id);
     if (!t) mode = 'view';
-    else { ui.mode = 'insert'; t.term.focus(); return; }
+    else { ui.mode = 'insert'; (p.status === 'running' ? t.term : t.input)?.focus(); return; }
   }
   ui.mode = mode;
   if (mode === 'prompt') els.prompt?.focus();
@@ -119,7 +120,7 @@ function detach(p) {
   if (tab.maximized === p.id) tab.maximized = null;
 }
 
-function start(id, rerun) {
+function start(id, cwd) {
   const p = paneById(id), t = terms.get(id);
   if (!p || !t) return;
   try { t.fit.fit(); } catch {}
@@ -127,18 +128,19 @@ function start(id, rerun) {
   ui.now = Date.now();
   t.term.options.disableStdin = false;
   t.term.options.cursorBlink = true;
+  t.term.write('\x1b[?25h');
   const { cols, rows } = t.term;
   t.lastSize = { cols, rows };
-  send({ type: 'run', id, tab: p.tab, cmd: p.cmd, cols, rows, cwd: rerun ? p.cwd : undefined });
+  send({ type: 'run', id, tab: p.tab, cmd: p.cmd, cols, rows, cwd });
 }
 
 export async function runCommand(cmd, insert = false) {
   const tab = activeTab();
   const id = 'p' + (++paneSeq);
-  ui.panes.push({ id, tab: tab.id, cmd, cwd: tab.cwd, status: 'running', closed: false, closedAt: 0, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  ui.panes.push({ id, tab: tab.id, cmd, cwd: tab.cwd, runCwd: tab.cwd, status: 'running', closed: false, closedAt: 0, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
   insertInto(tab, id);
   await tick();
-  start(id, false);
+  start(id);
   if (insert) setMode('insert');
 }
 
@@ -183,7 +185,18 @@ export function rerun(p = selected()) {
   if (!t) return;
   if (p.status === 'running') send({ type: 'kill', id: p.id });
   t.term.reset();
-  start(p.id, true);
+  start(p.id, p.runCwd);
+}
+
+// Run another command in a finished terminal, replacing its output, where the last one ended.
+export async function runInPane(p, cmd) {
+  const t = p && terms.get(p.id);
+  if (!t || p.status === 'running' || !cmd.trim()) return;
+  p.cmd = cmd.trim();
+  t.term.reset();
+  start(p.id, p.cwd);
+  await tick();
+  if (ui.mode === 'insert' && selected() === p) t.term.focus();
 }
 
 export function clearFinished() {

@@ -142,11 +142,12 @@ class Session extends EventEmitter {
     pty.onExit((code) => {
       if (this.runs.get(id)?.pty !== pty) return;   // superseded by a rerun
       this.runs.delete(id);
-      applyChanges(state, startCwd, startEnv, readText(env.__TP_STATE), readJson(env.__TP_ENV));
+      const endCwd = readText(env.__TP_STATE);
+      applyChanges(state, startCwd, startEnv, endCwd, readJson(env.__TP_ENV));
       for (const f of [env.__TP_STATE, env.__TP_ENV]) fs.rm(f, { force: true }, () => {});
       // Give trailing output a moment to flush before announcing exit.
       setTimeout(() => {
-        this.emit('message', { type: 'exit', id, code, ms: Date.now() - started });
+        this.emit('message', { type: 'exit', id, code, ms: Date.now() - started, cwd: endCwd || startCwd });
         this.emitState(msg.tab);
       }, 30);
     });

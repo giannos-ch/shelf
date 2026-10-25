@@ -47,6 +47,9 @@ current mode; press `?` in view mode for every shortcut.
   `t` new tab, `1`–`9` switch tabs, `Shift+1`–`9` move the terminal to a tab.
 - **Insert** — every key goes to the selected terminal. `Esc` returns to view
   mode; `Shift+Esc` sends a real Esc to the program (vim, less…).
+  A finished terminal shows its own prompt: in insert mode you type there and
+  `Enter` runs the command in that terminal (replacing its output), starting
+  where the last one ended.
 - `Ctrl+`` ` jumps back to the prompt from anywhere.
 
 Layout:

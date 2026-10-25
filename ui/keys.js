@@ -20,6 +20,8 @@ export const SHORTCUTS = [
   { mode: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+l'], desc: 'Remove finished terminals in this tab', run: S.clearFinished },
 
   { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode', run: () => S.setMode('view') },
+  { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal' },
+  { mode: 'insert', label: '↑', desc: 'On a finished terminal: recall its last command' },
   { mode: 'insert', label: 'Shift+Esc', keys: ['Shift+Escape'], desc: 'Send Esc to the program', run: () => S.sendEsc() },
 
   { mode: 'view', label: '←↑→↓', keys: arrows(''), desc: 'Select the terminal in that direction', run: (k) => S.selectDir(DIR[arrowOf(k)]) },

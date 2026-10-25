@@ -3,9 +3,11 @@
   import { FitAddon } from '@xterm/addon-fit';
   import { WebLinksAddon } from '@xterm/addon-web-links';
   import { send } from './conn.js';
-  import { ui, terms, activeTab, select, setMode, rerun, closePane, toggleMax, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
+  let inputEl = $state();
+  $effect(() => { const e = terms.get(pane.id); if (e) e.input = inputEl; });
 
   const THEME = {
     background: '#12151b', foreground: '#d7dce5', cursor: '#e3b341', cursorAccent: '#12151b',
@@ -89,4 +91,17 @@
     <div class="term" use:xterm></div>
     {#if pane.status !== 'running' && !pane.gotOutput}<div class="noout">no output</div>{/if}
   </div>
+  {#if pane.status !== 'running'}
+    <div class="pane-prompt">
+      <span class="where"><bdi>{tilde(pane.cwd)} ❯</bdi></span>
+      <input
+        bind:this={inputEl} spellcheck="false" autocomplete="off" placeholder="run here… (i)"
+        onfocus={() => { select(pane.id); ui.mode = 'insert'; }}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.value = pane.cmd; }
+        }}
+      />
+    </div>
+  {/if}
 </section>
