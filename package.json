@@ -1,0 +1,55 @@
+{
+  "name": "shelf-terminal",
+  "productName": "Shelf",
+  "version": "0.2.0",
+  "description": "A terminal where the prompt is a text box and every command gets its own floating output pane.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "web": "node server.js",
+    "postinstall": "electron-rebuild -f -o node-pty || echo \"node-pty could not be built for Electron; Shelf will use its python fallback.\"",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "dev.shelfterminal.app",
+    "productName": "Shelf",
+    "files": [
+      "main.js",
+      "preload.js",
+      "core.js",
+      "ptybridge.py",
+      "public/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "ptybridge.py",
+      "node_modules/node-pty/**"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "category": "Development",
+      "target": ["AppImage", "deb"]
+    }
+  },
+  "license": "MIT"
+}
