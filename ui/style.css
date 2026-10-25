@@ -74,6 +74,7 @@ kbd {
 .side-empty { color: var(--muted); font-size: 12px; padding: 4px 6px; }
 .closed-item { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
 .closed-item:hover { background: var(--head); }
+.closed-item.sel { background: var(--head-focus); box-shadow: inset 0 0 0 1px var(--accent); }
 .closed-item .reopen {
   flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center;
   border: 0; background: transparent; cursor: pointer; text-align: left; padding: 5px 6px;
@@ -193,7 +194,7 @@ kbd {
   flex: none; margin-bottom: 7px; padding: 1px 8px; border-radius: 4px;
   font: 600 11px var(--mono); letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line);
 }
-.mode.view { color: var(--accent); border-color: var(--accent); }
+.mode.view, .mode.side { color: var(--accent); border-color: var(--accent); }
 .mode.insert { color: var(--bg); background: var(--insert); border-color: var(--insert); }
 #conn { padding: 4px 10px 8px; color: var(--err); font-size: 12px; }
 

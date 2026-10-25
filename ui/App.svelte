@@ -4,14 +4,14 @@
   import { SHORTCUTS, onKeydown } from './keys.js';
   import {
     ui, els, init, activeTab, tabById, closedPanes, layoutOf, tabTitle, tilde, setMode,
-    newTab, closeTab, reopen, destroy, startResize,
+    newTab, closeTab, reopen, destroy, startResize, openSidebar, closeSidebar,
   } from './store.svelte.js';
 
   let desk;
   const tab = $derived(activeTab());
   const layout = $derived(layoutOf(tab));
   const closed = $derived(closedPanes());
-  const MODES = [['any', 'Anywhere'], ['prompt', 'Prompt'], ['view', 'View mode'], ['insert', 'Insert mode']];
+  const MODES = [['any', 'Anywhere'], ['prompt', 'Prompt'], ['view', 'View mode'], ['insert', 'Insert mode'], ['side', 'Closed list']];
   const px = (r) => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
 
   function gotoTabId(id) {
@@ -21,12 +21,13 @@
 
   $effect(() => { els.desk = desk; init(); setMode('prompt'); });
   $effect(() => { document.title = `${tilde(tab?.cwd || '')} — Shelf`; });
+  $effect(() => { if (ui.mode === 'side' && ui.sideSel) document.querySelector('.closed-item.sel')?.scrollIntoView({ block: 'nearest' }); });
 </script>
 
 <svelte:window onkeydowncapture={onKeydown} />
 
 <nav id="tabs">
-  <button class="side-toggle" class:on={ui.sidebar} title="Closed terminals (b)" onclick={() => (ui.sidebar = !ui.sidebar)}>
+  <button class="side-toggle" class:on={ui.sidebar} title="Closed terminals (b)" onclick={() => (ui.sidebar ? closeSidebar() : openSidebar())}>
     ☰{#if closed.length}<span class="count">{closed.length}</span>{/if}
   </button>
   {#each ui.tabs as t, i (t.id)}
@@ -49,9 +50,9 @@
 <div id="main">
   {#if ui.sidebar}
     <aside id="sidebar">
-      <div class="side-head">Closed <span class="muted">· u reopens the last</span></div>
+      <div class="side-head">Closed <span class="muted">· b to select · Enter reopens</span></div>
       {#each closed as p (p.id)}
-        <div class="closed-item" title="{p.cmd}&#10;{p.cwd}">
+        <div class="closed-item" class:sel={ui.mode === 'side' && ui.sideSel === p.id} title="{p.cmd}&#10;{p.cwd}">
           <button class="reopen" onclick={() => reopen(p)}>
             <span class="dot {p.status}"></span>
             <span class="cmd">{p.cmd.replace(/\n/g, ' ⏎ ')}</span>

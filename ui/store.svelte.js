@@ -14,8 +14,9 @@ export const ui = $state({
   tabs: [makeTab()],
   active: 't1',
   panes: [],
-  mode: 'prompt',          // 'prompt' | 'view' | 'insert'
+  mode: 'prompt',          // 'prompt' | 'view' | 'insert' | 'side'
   sidebar: true,
+  sideSel: null,
   help: false,
   home: '',
   connected: true,
@@ -209,6 +210,32 @@ const finished = () => L.leaves(activeTab()?.tree).map(paneById).filter((p) => p
 export function shelveFinished() { for (const p of finished()) closePane(p); }
 export function clearFinished() { for (const p of finished()) destroy(p); }
 export function togglePin(p = selected()) { if (p) p.pinned = !p.pinned; }
+
+// ------------------------------------------------------------- sidebar
+export function openSidebar() {
+  ui.sidebar = true;
+  ui.sideSel = closedPanes()[0]?.id ?? null;
+  setMode('side');
+}
+export function closeSidebar() {
+  ui.sidebar = false;
+  if (ui.mode === 'side') setMode('view');
+}
+export function sideMove(d) {
+  const list = closedPanes();
+  if (!list.length) return;
+  const i = list.findIndex((p) => p.id === ui.sideSel);
+  ui.sideSel = list[Math.max(0, Math.min(list.length - 1, i + d))].id;
+}
+// Act on the highlighted closed terminal, then highlight the one that took its place.
+export async function sideAct(fn) {
+  const list = closedPanes(), i = list.findIndex((p) => p.id === ui.sideSel);
+  if (i < 0) return setMode('view');
+  await fn(list[i]);
+  const rest = closedPanes();
+  ui.sideSel = rest[Math.min(i, rest.length - 1)]?.id ?? null;
+  if (!ui.sideSel) setMode('view');
+}
 
 export function toggleMax() {
   const tab = activeTab();

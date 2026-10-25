@@ -51,8 +51,15 @@ export const SHORTCUTS = [
   { mode: 'view', label: '[ / ]', keys: ['[', ']'], desc: 'Previous / next tab', run: (k) => S.shiftTab(k === '[' ? -1 : 1) },
   { mode: 'view', label: 'Shift+1 … 9', keys: digits('Shift+'), desc: 'Move terminal to tab', run: (k) => S.moveToIndex(+arrowOf(k) - 1) },
   { mode: 'view', label: '{ / }', keys: ['{', '}'], desc: 'Move terminal to previous / next tab (new tab past the end)', run: (k) => S.moveBy(k === '{' ? -1 : 1) },
-  { mode: 'view', label: 'b', keys: ['b'], desc: 'Toggle the closed-terminals list', run: () => (ui.sidebar = !ui.sidebar) },
+  { mode: 'view', label: 'b', keys: ['b'], desc: 'Open the closed-terminals list and select its first entry', run: S.openSidebar },
   { mode: 'view', label: '?', keys: ['?'], desc: 'This help', run: () => (ui.help = true) },
+
+  { mode: 'side', label: '↑ ↓', keys: ['ArrowUp', 'ArrowDown'], desc: 'Select a closed terminal', run: (k) => S.sideMove(k === 'ArrowUp' ? -1 : 1) },
+  { mode: 'side', label: 'Enter', keys: ['Enter'], desc: 'Reopen it', run: () => S.sideAct(S.reopen) },
+  { mode: 'side', label: 'Esc / X', keys: ['Escape', 'X'], desc: 'Kill and remove it for good', run: () => S.sideAct(S.destroy) },
+  { mode: 'side', label: '→', keys: ['ArrowRight'], desc: 'Back to the terminals (list stays open)', run: () => S.setMode('view') },
+  { mode: 'side', label: 'b', keys: ['b'], desc: 'Hide the list', run: S.closeSidebar },
+  { mode: 'side', label: '…', desc: 'Other view-mode shortcuts still work' },
 ];
 
 export function keyName(e) {
@@ -73,8 +80,9 @@ export function onKeydown(e) {
     if (['Escape', '?', 'q'].includes(k)) ui.help = false;
     return;
   }
-  const sc = SHORTCUTS.find((s) => s.run && (s.mode === ui.mode || s.mode === 'any') && s.keys.includes(k));
+  const order = ui.mode === 'side' ? ['side', 'view', 'any'] : [ui.mode, 'any'];
+  const sc = order.map((m) => SHORTCUTS.find((s) => s.run && s.mode === m && s.keys.includes(k))).find(Boolean);
   if (sc) { consume(e); sc.run(k); return; }
   // View mode: nothing reaches a program. Ctrl+Shift stays free for app shortcuts.
-  if (ui.mode === 'view' && !(e.ctrlKey && e.shiftKey)) consume(e);
+  if ((ui.mode === 'view' || ui.mode === 'side') && !(e.ctrlKey && e.shiftKey)) consume(e);
 }
