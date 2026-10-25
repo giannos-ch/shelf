@@ -73,6 +73,7 @@ function onMessage(m) {
     case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms); } break;
     case 'completions': handlers.completions?.(m); break;
     case 'history': handlers.history?.(m); break;
+    case 'cd': if (!m.ok) runCommand(m.cmd, false, true); break;
   }
 }
 
@@ -135,7 +136,11 @@ function start(id, cwd) {
   send({ type: 'run', id, tab: p.tab, cmd: p.cmd, cols, rows, cwd });
 }
 
-export async function runCommand(cmd, insert = false) {
+const CD = /^cd(?:\s+([^\s'"`$\\;&|<>(){}*?[\]!#]+))?$/;
+
+export async function runCommand(cmd, insert = false, inPane = false) {
+  const cd = !inPane && cmd.match(CD);
+  if (cd) return send({ type: 'cd', tab: ui.active, path: cd[1] ?? '', cmd });
   const tab = activeTab();
   const id = 'p' + (++paneSeq);
   ui.panes.push({ id, tab: tab.id, cmd, cwd: tab.cwd, runCwd: tab.cwd, status: 'running', closed: false, closedAt: 0, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });

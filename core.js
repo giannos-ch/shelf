@@ -167,6 +167,7 @@ class Session extends EventEmitter {
       case 'history-add': appendHistory(String(msg.cmd || '')); break;
       case 'tab-close': this.tabs.delete(String(msg.tab)); break;
       case 'run': this.run(msg); break;
+      case 'cd': this.cd(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
       case 'resize': run?.pty.resize(Math.max(2, msg.cols | 0), Math.max(1, msg.rows | 0)); break;
       case 'kill': run?.pty.kill(); break;
@@ -206,6 +207,21 @@ class Session extends EventEmitter {
         this.emitState(msg.tab);
       }, 30);
     });
+  }
+
+  // A bare `cd` changes the tab's directory without a terminal; on failure the
+  // UI runs it for real so the error shows up in a pane.
+  cd(msg) {
+    const state = this.stateFor(msg.tab), home = os.homedir();
+    const arg = String(msg.path ?? '');
+    const target = arg === '-' ? state.prev
+      : !arg || arg === '~' ? home
+      : path.resolve(state.cwd, arg.startsWith('~/') ? home + arg.slice(1) : arg);
+    let ok = false;
+    try { ok = !!target && fs.statSync(target).isDirectory(); } catch {}
+    if (ok && target !== state.cwd) { state.prev = state.cwd; state.cwd = target; }
+    this.emit('message', { type: 'cd', tab: msg.tab, cmd: msg.cmd, ok });
+    if (ok) this.emitState(msg.tab);
   }
 
   killAll() {

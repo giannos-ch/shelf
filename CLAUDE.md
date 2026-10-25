@@ -30,7 +30,7 @@ Shelf is a terminal where the prompt is a text box and each command runs in its 
   - `keys.js` holds the `SHORTCUTS` table; it drives both the capture-phase keydown handler and the help overlay, so add shortcuts there.
   - Panes render as one flat keyed list, absolutely positioned from the tree's rects, so xterm never remounts when the layout changes.
   - Modes: prompt / view (keys never reach programs) / insert (keys go to the selected pane; `Esc` leaves, `Shift+Esc` sends Esc).
-  - No per-command special cases.
+  - No per-command special cases, except a bare `cd <dir>` which just changes the tab's cwd (`Session.cd`); anything fancier, or a failing cd, runs in a pane.
 
 ### State carry-over between commands
 
