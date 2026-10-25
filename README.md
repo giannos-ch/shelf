@@ -1,8 +1,8 @@
 # Shelf
 
 A desktop terminal where the prompt is a normal text box, and every command
-you run opens its own pane containing only that command's output. Panes can be
-moved, resized, minimized, maximized and re-run. Each pane is a real terminal
+you run opens its own docked pane containing only that command's output. Panes
+can be rearranged, maximized, moved between tabs, hidden and re-run. Each pane is a real terminal
 (its own PTY), so full-screen programs such as Claude Code, vim or htop work
 inside a pane.
 
@@ -36,47 +36,50 @@ http://127.0.0.1:7777 (set `PORT=…` to change it).
 
 ## Using it
 
-| | |
-|---|---|
-| `Enter` / `Shift+Enter` | run / new line in the prompt |
-| `Tab` | complete commands and paths (pick from the list if several match) |
-| `↑` `↓` | command history |
-| click a pane | type into the program running in it |
-| `Ctrl+`` ` | jump back to the prompt from anywhere |
-| `clear` or `Ctrl+L` | close all finished panes |
-| `⌘N` / `Ctrl+Shift+N` | new window (starts in the current folder) |
-| `⌘=` `⌘-` `⌘0` / `Ctrl+Shift+= - 0` | zoom in, out, reset |
+Shelf is modal, like vim. The badge at the right of the prompt shows the
+current mode; press `?` in view mode for every shortcut.
 
-On Linux every app shortcut uses `Ctrl+Shift`, so plain `Ctrl` keys (`Ctrl+C`,
-`Ctrl+W`, `Ctrl+R`…) always reach the program running in a pane.
+- **Prompt** — type commands. `Enter` runs, `Ctrl+Enter` runs and types into
+  the new terminal, `Tab` completes, `↑` `↓` history. `Esc` → view mode.
+- **View** — keys never reach programs. Arrow keys move between terminals,
+  `i` types into the selected one, `Esc` closes it, `m` maximizes, `k` kills,
+  `c` sends Ctrl+C, `r` re-runs. Select text with the mouse and `Ctrl+C` copies.
+  `t` new tab, `1`–`9` switch tabs, `Shift+1`–`9` move the terminal to a tab.
+- **Insert** — every key goes to the selected terminal. `Esc` returns to view
+  mode; `Shift+Esc` sends a real Esc to the program (vim, less…).
+- `Ctrl+`` ` jumps back to the prompt from anywhere.
 
-- **Layout.** New panes flow into columns, oldest first, and the window
-  scrolls like a notebook. A finished pane shrinks to fit its output.
-- **Moving.** Drag a header to take a pane out of the flow and put it anywhere;
-  the rest close the gap. **Arrange** puts everything back into the flow.
-- **Pane buttons:** ↻ re-run (in the directory it originally ran in),
-  ▁ minimize to the dock above the prompt, ▢ maximize (or double-click the
-  header), ✕ close (stops the command if it is still running).
-- **Full-screen programs.** Anything that switches to the terminal's
-  alternate screen (vim, htop, less…) is maximized and given the keyboard
-  automatically, and restored when it exits. Programs that draw inline, such as
-  `claude`, `python` or `ssh`, are recognised by name: see `INTERACTIVE` at the
-  top of `public/app.js` to add your own.
-- **Windows.** Each window is its own shell session. Closing a window with
-  commands still running asks first. Links in output open in your browser.
+Layout:
+
+- **Docking.** The first terminal fills the window, and each new one docks
+  below the last one. Drag a header onto another terminal's edge, a window
+  edge, or a tab to move it. Drag the gaps to resize.
+- **Closed list.** Closing a terminal hides it in the list on the left (`b`
+  toggles it). It keeps running; click it or press `u` to bring it back, or
+  `X` to kill and remove it for good.
+- **Tabs.** Each tab has its own working directory and environment: a `cd` in
+  one tab doesn't affect the others. New tabs start where the current one is.
+- **Windows.** `⌘N` / `Ctrl+Shift+N` opens a new window, which is its own shell
+  session. Closing a window with commands still running asks first. Links in
+  output open in your browser.
+
+On Linux every app shortcut uses `Ctrl+Shift`, so plain `Ctrl` keys always
+reach the program in insert mode.
 
 ## How it works
 
 ```
-renderer (public/)                 main process (main.js + core.js)
+renderer (ui/, Svelte)             main process (main.js + core.js)
 prompt ──── run {cmd} ───────────▶ new PTY per command:
 pane (xterm.js) ◀──── output ────  bash -c '<cmd>' in the session cwd/env
 pane keystrokes ── input/resize ─▶ same PTY
                 ◀── exit {code} ── records final cwd + exported env
 ```
 
+- `ui/` is the Svelte renderer, built by Vite into `public/` (`npm start` and
+  `npm run web` build it first).
 - `core.js` holds everything shell-related: sessions, PTYs, carrying state
-  between commands, tab completion.
+  between commands (per UI tab), tab completion.
 - `main.js` is the Electron app: windows, menus, and the `app://` protocol
   that serves the UI. It talks to the page over IPC through `preload.js`, which
   exposes only a send/receive message bridge (context isolation and sandbox
@@ -100,6 +103,6 @@ shell.
 ## Security
 
 Desktop: the page has no Node access, only accepts its own `app://` content,
-never navigates away, and denies permission requests. Browser mode: the server
+never navigates away, and denies permission requests other than clipboard writes. Browser mode: the server
 listens on 127.0.0.1 only and rejects WebSocket connections from other web
 pages. Either way it is a shell with your user's permissions.

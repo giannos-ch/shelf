@@ -2,21 +2,23 @@
   "name": "shelf-terminal",
   "productName": "Shelf",
   "version": "0.2.0",
-  "description": "A terminal where the prompt is a text box and every command gets its own floating output pane.",
+  "description": "A terminal where the prompt is a text box and every command gets its own docked output pane.",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "web": "node server.js",
+    "start": "vite build && electron .",
+    "web": "vite build && node server.js",
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "check": "node ui/layout.check.js",
     "postinstall": "electron-rebuild -f -o node-pty || echo \"node-pty could not be built for Electron; Shelf will use its python fallback.\"",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "dist": "vite build && electron-builder",
+    "dist:mac": "vite build && electron-builder --mac",
+    "dist:linux": "vite build && electron-builder --linux"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/addon-web-links": "^0.11.0",
-    "@xterm/xterm": "^5.5.0",
     "ws": "^8.18.0"
   },
   "optionalDependencies": {
@@ -24,8 +26,14 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
     "electron": "^44.0.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "svelte": "^5.57.2",
+    "vite": "^8.3.5"
   },
   "build": {
     "appId": "dev.shelfterminal.app",
@@ -44,11 +52,17 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "linux": {
       "category": "Development",
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   },
   "license": "MIT"

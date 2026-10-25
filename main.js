@@ -164,8 +164,8 @@ function buildMenu() {
 }
 
 app.whenReady().then(async () => {
-  // The page needs no camera, notifications, etc.
-  electronSession.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+  // The page needs no camera, notifications, etc. — only clipboard writes for copy.
+  electronSession.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'clipboard-sanitized-write'));
   registerProtocol();
   buildMenu();
   const loginEnv = await loadLoginEnv();

@@ -77,33 +77,46 @@ function cleanEnv(env) {
 }
 
 // ------------------------------------------------------------------ session
-// A session holds a cwd + env (`state`, which callers may share between
-// sessions) and the commands it is running. Feed it client messages with
-// handle(); it emits 'message' events to send back.
+// A session holds a base cwd + env (`state`, which callers may share between
+// sessions), one cwd + env per UI tab cloned from it, and the commands it is
+// running. Feed it client messages with handle(); it emits 'message' events.
 class Session extends EventEmitter {
   constructor(state) {
     super();
     this.state = state;
+    this.tabs = new Map();
     this.runs = new Map();
   }
 
   get runningCount() { return this.runs.size; }
 
-  emitState() {
-    this.emit('message', { type: 'state', cwd: this.state.cwd, home: os.homedir(), backend: ptyBackend });
+  stateFor(tab, from) {
+    tab = String(tab ?? '');
+    if (!this.tabs.has(tab)) {
+      const src = this.tabs.get(String(from ?? '')) || this.state;
+      this.tabs.set(tab, { cwd: src.cwd, env: { ...src.env } });
+    }
+    return this.tabs.get(tab);
+  }
+
+  emitState(tab) {
+    const { cwd } = tab == null ? this.state : this.stateFor(tab);
+    this.emit('message', { type: 'state', tab, cwd, home: os.homedir(), backend: ptyBackend });
   }
 
   handle(msg) {
     if (!msg || typeof msg !== 'object') return;
     const run = this.runs.get(msg.id);
     switch (msg.type) {
-      case 'hello': this.killAll(); this.emitState(); break;   // UI (re)loaded: old panes are gone
+      case 'hello': this.killAll(); this.tabs.clear(); this.emitState(); break;   // UI (re)loaded: old panes are gone
+      case 'tab-open': this.stateFor(msg.tab, msg.from); this.emitState(msg.tab); break;
+      case 'tab-close': this.tabs.delete(String(msg.tab)); break;
       case 'run': this.run(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
       case 'resize': run?.pty.resize(Math.max(2, msg.cols | 0), Math.max(1, msg.rows | 0)); break;
       case 'kill': run?.pty.kill(); break;
       case 'complete':
-        complete(this.state, String(msg.line || ''), (r) => this.emit('message', { type: 'completions', reqId: msg.reqId, ...r }));
+        complete(this.stateFor(msg.tab), String(msg.line || ''), (r) => this.emit('message', { type: 'completions', reqId: msg.reqId, ...r }));
         break;
     }
   }
@@ -111,7 +124,7 @@ class Session extends EventEmitter {
   run(msg) {
     const id = String(msg.id);
     if (this.runs.has(id)) this.runs.get(id).pty.kill();
-    const { state } = this;
+    const state = this.stateFor(msg.tab);
     const startCwd = msg.cwd && fs.existsSync(msg.cwd) ? msg.cwd : (fs.existsSync(state.cwd) ? state.cwd : os.homedir());
     const startEnv = { ...state.env };
     const base = path.join(tmpRoot, id.replace(/\W/g, '_') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
@@ -134,7 +147,7 @@ class Session extends EventEmitter {
       // Give trailing output a moment to flush before announcing exit.
       setTimeout(() => {
         this.emit('message', { type: 'exit', id, code, ms: Date.now() - started });
-        this.emitState();
+        this.emitState(msg.tab);
       }, 30);
     });
   }
@@ -184,22 +197,12 @@ function complete(state, line, cb) {
 
 // ---------------------------------------------------------- static assets
 // URL path -> file on disk, shared by the HTTP server and the app:// protocol.
-function pkgDir(name) {
-  try { return path.dirname(require.resolve(`${name}/package.json`)); } catch { return null; }
-}
-const VENDOR = {
-  '/vendor/xterm/': pkgDir('@xterm/xterm'),
-  '/vendor/addon-fit/': pkgDir('@xterm/addon-fit'),
-  '/vendor/addon-web-links/': pkgDir('@xterm/addon-web-links'),
-};
+// public/ is the Vite build output of ui/.
 const PUBLIC = path.join(__dirname, 'public');
 
 function resolveAsset(urlPath) {
   const p = path.posix.normalize(urlPath);
   if (p.includes('..')) return null;
-  for (const [prefix, dir] of Object.entries(VENDOR)) {
-    if (p.startsWith(prefix)) return dir ? path.join(dir, p.slice(prefix.length)) : null;
-  }
   return path.join(PUBLIC, p === '/' ? 'index.html' : p);
 }
 
