@@ -5,7 +5,7 @@ import * as L from './layout.js';
 // xterm instances live outside $state so they are never proxied.
 export const terms = new Map();   // pane id -> { term, fit, lastSize }
 export const els = { prompt: null, desk: null };
-export const handlers = { completions: null };
+export const handlers = { completions: null, history: null };
 
 let paneSeq = 0, tabSeq = 0;
 const makeTab = (cwd = '') => ({ id: 't' + (++tabSeq), cwd, tree: null, selected: null, maximized: null, lastCreated: null });
@@ -53,7 +53,7 @@ export function layoutOf(tab) {
 export function init() {
   connect({
     onMessage,
-    onOpen: () => { ui.connected = true; for (const t of ui.tabs) send({ type: 'tab-open', tab: t.id }); },
+    onOpen: () => { ui.connected = true; for (const t of ui.tabs) send({ type: 'tab-open', tab: t.id }); send({ type: 'history' }); },
     onClose: () => {
       ui.connected = false;
       for (const p of ui.panes) if (p.status === 'running') finish(p, null, null, 'disconnected');
@@ -72,6 +72,7 @@ function onMessage(m) {
       break;
     case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms); } break;
     case 'completions': handlers.completions?.(m); break;
+    case 'history': handlers.history?.(m); break;
   }
 }
 

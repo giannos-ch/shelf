@@ -5,9 +5,13 @@
   let input;
   const cwd = $derived(activeTab()?.cwd || '');
 
-  const history = (() => { try { return JSON.parse(localStorage.getItem('shelf.history') || '[]'); } catch { return []; } })();
-  let histIdx = history.length, draft = '';
-  const saveHistory = () => { try { localStorage.setItem('shelf.history', JSON.stringify(history.slice(-500))); } catch {} };
+  let history = [];
+  let histIdx = 0, draft = '';
+  handlers.history = ({ items }) => {
+    const atEnd = histIdx === history.length;
+    history = items;
+    if (atEnd || histIdx > history.length) histIdx = history.length;
+  };
 
   function autoGrow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight + 2, 180) + 'px'; }
   function setInput(v) { input.value = v; autoGrow(); input.selectionStart = input.selectionEnd = v.length; }
@@ -15,7 +19,8 @@
   function runInput(insert) {
     const cmd = input.value.trim();
     if (!cmd) return;
-    if (history[history.length - 1] !== cmd) { history.push(cmd); saveHistory(); }
+    send({ type: 'history-add', cmd: input.value });
+    if (history[history.length - 1] !== cmd) history.push(cmd);
     histIdx = history.length; draft = '';
     input.value = ''; autoGrow(); ui.comp = null;
     runCommand(cmd, insert);
@@ -62,6 +67,11 @@
   const label = (it) => (it.endsWith('/') ? it.slice(0, -1).split('/').pop() + '/' : it.split('/').pop()) || it;
 
   $effect(() => { els.prompt = input; });
+  $effect(() => {
+    const refresh = () => send({ type: 'history' });
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  });
 </script>
 
 {#if ui.comp}

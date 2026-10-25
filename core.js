@@ -59,6 +59,8 @@ __tp_save() {
   ELECTRON_RUN_AS_NODE=1 "$__TP_NODE" -e 'process.stdout.write(JSON.stringify(process.env))' > "$__TP_ENV" 2>/dev/null
 }
 trap __tp_save EXIT
+shopt -s expand_aliases
+eval "$__TP_ALIASES" 2>/dev/null
 eval "$__TP_CMD"
 `;
 
@@ -74,6 +76,57 @@ const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); }
 function cleanEnv(env) {
   return Object.fromEntries(Object.entries(env).filter(([k]) =>
     !k.startsWith('__TP_') && !k.startsWith('npm_') && !k.startsWith('ELECTRON_') && k !== 'INIT_CWD'));
+}
+
+// ------------------------------------------------------------- zsh bridge
+// HISTFILE and aliases come from an interactive zsh so ~/.zshrc is honoured.
+const zsh = { histfile: path.join(os.homedir(), '.zsh_history'), aliases: '' };
+
+function loadZsh() {
+  execFile('zsh', ['-ic', 'print -r -- $HISTFILE; alias -rL'], { cwd: os.homedir(), timeout: 3000 }, (err, out) => {
+    if (!out) return;
+    const [file, ...aliases] = out.split('\n');
+    if (file) zsh.histfile = file;
+    zsh.aliases = aliases.join('\n');
+  });
+}
+loadZsh();
+
+// zsh "metafies" history bytes 0x00 and 0x83-0xa2 as 0x83, byte ^ 0x20.
+function readHistory() {
+  let buf;
+  try { buf = fs.readFileSync(zsh.histfile); } catch { return []; }
+  const out = Buffer.alloc(buf.length);
+  let n = 0;
+  for (let i = 0; i < buf.length; i++) out[n++] = buf[i] === 0x83 && i + 1 < buf.length ? buf[++i] ^ 0x20 : buf[i];
+  const items = [];
+  let cur = null;
+  for (const line of out.toString('utf8', 0, n).split('\n')) {
+    cur = cur === null ? line.replace(/^: \d+:\d+;/, '') : cur + '\n' + line;
+    if (cur.endsWith('\\')) { cur = cur.slice(0, -1); continue; }
+    if (cur && items[items.length - 1] !== cur) items.push(cur);
+    cur = null;
+  }
+  return items;
+}
+
+// ponytail: ignores zsh's HISTFILE.LOCK; a single small O_APPEND write is safe enough.
+function appendHistory(cmd) {
+  if (!cmd.trim() || cmd.startsWith(' ')) return;
+  let extended = false;
+  try {
+    const fd = fs.openSync(zsh.histfile, 'r');
+    const head = Buffer.alloc(2);
+    fs.readSync(fd, head, 0, 2, 0);
+    fs.closeSync(fd);
+    extended = head.toString() === ': ';
+  } catch {}
+  const line = (extended ? `: ${Math.floor(Date.now() / 1000)}:0;` : '') + cmd.trim().replace(/\n/g, '\\\n') + '\n';
+  const bytes = [];
+  for (const b of Buffer.from(line)) {
+    if (b === 0 || (b >= 0x83 && b <= 0xa2)) bytes.push(0x83, b ^ 0x20); else bytes.push(b);
+  }
+  try { fs.appendFileSync(zsh.histfile, Buffer.from(bytes), { mode: 0o600 }); } catch {}
 }
 
 // ------------------------------------------------------------------ session
@@ -108,8 +161,10 @@ class Session extends EventEmitter {
     if (!msg || typeof msg !== 'object') return;
     const run = this.runs.get(msg.id);
     switch (msg.type) {
-      case 'hello': this.killAll(); this.tabs.clear(); this.emitState(); break;   // UI (re)loaded: old panes are gone
+      case 'hello': this.killAll(); this.tabs.clear(); loadZsh(); this.emitState(); break;   // UI (re)loaded: old panes are gone
       case 'tab-open': this.stateFor(msg.tab, msg.from); this.emitState(msg.tab); break;
+      case 'history': this.emit('message', { type: 'history', items: readHistory() }); break;
+      case 'history-add': appendHistory(String(msg.cmd || '')); break;
       case 'tab-close': this.tabs.delete(String(msg.tab)); break;
       case 'run': this.run(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
@@ -130,7 +185,7 @@ class Session extends EventEmitter {
     const base = path.join(tmpRoot, id.replace(/\W/g, '_') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
     const env = {
       ...startEnv, TERM: 'xterm-256color', COLORTERM: 'truecolor', SHELF_TERMINAL: '1',
-      __TP_CMD: String(msg.cmd), __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath,
+      __TP_CMD: String(msg.cmd), __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
     };
     const pty = spawnPty(SHELL, ['--noprofile', '--norc', '-c', WRAPPER], {
       cwd: startCwd, env, cols: msg.cols || 80, rows: msg.rows || 24,
