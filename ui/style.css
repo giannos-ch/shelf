@@ -168,16 +168,17 @@ kbd {
 
 /* ------------------------------------------------------------- bottom bar */
 #bar { flex: none; border-top: 1px solid var(--line); background: #10131a; }
-#completions {
+.completions {
+  flex: none;
   display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px 0;
   max-height: 96px; overflow-y: auto;
 }
-#completions button {
+.completions button {
   border: 1px solid var(--line); background: var(--pane); border-radius: 4px;
   padding: 2px 8px; font: 12px var(--mono); cursor: pointer;
 }
-#completions button:hover { border-color: var(--accent); }
-#completions .more { color: var(--muted); font: 12px var(--mono); padding: 2px 4px; }
+.completions button:hover { border-color: var(--accent); }
+.completions .more { color: var(--muted); font: 12px var(--mono); padding: 2px 4px; }
 
 #prompt { display: flex; align-items: flex-end; gap: 10px; padding: 8px 10px 10px; }
 #cwd {
