@@ -60,7 +60,7 @@
           <button class="x" title="Kill and remove" onclick={() => destroy(p)}>✕</button>
         </div>
       {:else}
-        <div class="side-empty">Terminals you close (Esc in view mode) keep running here.</div>
+        <div class="side-empty">Terminals you close (Esc or l in view mode) keep running here.</div>
       {/each}
     </aside>
   {/if}

@@ -143,7 +143,7 @@ export async function runCommand(cmd, insert = false, inPane = false) {
   if (cd) return send({ type: 'cd', tab: ui.active, path: cd[1] ?? '', cmd });
   const tab = activeTab();
   const id = 'p' + (++paneSeq);
-  ui.panes.push({ id, tab: tab.id, cmd, cwd: tab.cwd, runCwd: tab.cwd, status: 'running', closed: false, closedAt: 0, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  ui.panes.push({ id, tab: tab.id, cmd, cwd: tab.cwd, runCwd: tab.cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
   insertInto(tab, id);
   await tick();
   start(id);
@@ -205,12 +205,10 @@ export async function runInPane(p, cmd) {
   if (ui.mode === 'insert' && selected() === p) t.term.focus();
 }
 
-export function clearFinished() {
-  for (const id of L.leaves(activeTab()?.tree)) {
-    const p = paneById(id);
-    if (p.status !== 'running') destroy(p);
-  }
-}
+const finished = () => L.leaves(activeTab()?.tree).map(paneById).filter((p) => p.status !== 'running' && !p.pinned);
+export function shelveFinished() { for (const p of finished()) closePane(p); }
+export function clearFinished() { for (const p of finished()) destroy(p); }
+export function togglePin(p = selected()) { if (p) p.pinned = !p.pinned; }
 
 export function toggleMax() {
   const tab = activeTab();

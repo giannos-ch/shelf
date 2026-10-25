@@ -145,6 +145,8 @@ kbd {
   color: var(--muted); cursor: pointer; display: grid; place-items: center; font-size: 12px;
 }
 .btns button:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.btns button.pin { filter: grayscale(1); opacity: .45; }
+.btns button.pin.on { filter: none; opacity: 1; }
 .btns button.close:hover { background: rgba(248,81,73,.18); color: var(--err); }
 
 .pane-body { position: relative; flex: 1; min-height: 0; padding: 6px 4px 4px 10px; }

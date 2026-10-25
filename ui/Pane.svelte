@@ -3,7 +3,7 @@
   import { FitAddon } from '@xterm/addon-fit';
   import { WebLinksAddon } from '@xterm/addon-web-links';
   import { send } from './conn.js';
-  import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
@@ -82,6 +82,7 @@
     <span class="meta">{meta}{#if badge}{' · '}<span class="code">{badge}</span>{/if}</span>
     <span class="btns">
       <button title="Run again (r)" onclick={() => rerun(pane)}>↻</button>
+      <button class="pin" class:on={pane.pinned} title="{pane.pinned ? 'Unpin' : 'Pin'} (p)" onclick={() => togglePin(pane)}>📌</button>
       <button title="{maximized ? 'Restore' : 'Maximize'} (m)" onclick={toggleMax}>{maximized ? '❐' : '▢'}</button>
       <button class="close" title="Close (Esc in view mode)" onclick={() => closePane(pane)}>✕</button>
     </span>
