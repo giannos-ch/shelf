@@ -163,8 +163,9 @@ kbd {
 }
 .pane.insert .pane-prompt { background: rgba(227,179,65,.06); }
 .xterm .xterm-viewport { background: transparent !important; }
-.xterm-viewport::-webkit-scrollbar { width: 8px; }
-.xterm-viewport::-webkit-scrollbar-thumb { background: #2b3240; border-radius: 4px; }
+.xterm-viewport::-webkit-scrollbar, .completions::-webkit-scrollbar, .hlist::-webkit-scrollbar { width: 8px; }
+.xterm-viewport::-webkit-scrollbar-thumb, .completions::-webkit-scrollbar-thumb, .hlist::-webkit-scrollbar-thumb { background: #2b3240; border-radius: 4px; }
+.completions::-webkit-scrollbar-thumb:hover, .hlist::-webkit-scrollbar-thumb:hover { background: #3a4356; }
 
 /* ------------------------------------------------------------- bottom bar */
 #bar { flex: none; border-top: 1px solid var(--line); background: #10131a; }
