@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte';
   import Pane from './Pane.svelte';
   import Prompt from './Prompt.svelte';
   import { SHORTCUTS, onKeydown } from './keys.js';
@@ -19,7 +20,7 @@
     setMode(ui.mode === 'insert' ? 'view' : ui.mode);
   }
 
-  $effect(() => { els.desk = desk; init(); setMode('prompt'); });
+  onMount(() => { els.desk = desk; init(); setMode('prompt'); });   // not $effect: init reads ui.tabs, so a new tab would re-run it (hello resets every tab)
   $effect(() => { document.title = `${tilde(tab?.cwd || '')} — Shelf`; });
   $effect(() => { if (ui.mode === 'side' && ui.sideSel) document.querySelector('.closed-item.sel')?.scrollIntoView({ block: 'nearest' }); });
 </script>
