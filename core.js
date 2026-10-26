@@ -53,8 +53,12 @@ function spawnPty(file, args, { cwd, env, cols, rows }) {
 // Runs the user's command, then records the final cwd and exported env so the
 // next command starts where this one left off. The trap also fires on `exit`.
 // ELECTRON_RUN_AS_NODE lets the Electron binary act as plain node here.
+// Ending in another directory runs zsh's chpwd hooks first, as a cd would.
 const WRAPPER = `
 __tp_save() {
+  if [ "$PWD" != "$__TP_START" ]; then
+    for __tp_f in "\${__tp_hooks[@]}"; do declare -F "$__tp_f" >/dev/null && "$__tp_f"; done
+  fi
   pwd > "$__TP_STATE" 2>/dev/null
   ELECTRON_RUN_AS_NODE=1 "$__TP_NODE" -e 'process.stdout.write(JSON.stringify(process.env))' > "$__TP_ENV" 2>/dev/null
 }
@@ -79,15 +83,24 @@ function cleanEnv(env) {
 }
 
 // ------------------------------------------------------------- zsh bridge
-// HISTFILE and aliases come from an interactive zsh so ~/.zshrc is honoured.
-const zsh = { histfile: path.join(os.homedir(), '.zsh_history'), aliases: '' };
+// HISTFILE, aliases and the user's own functions come from an interactive zsh
+// so ~/.zshrc is honoured. Functions from oh-my-zsh, system dirs or named _*
+// are skipped (zsh-only, and some would shadow bash builtins like compgen);
+// each is eval'd alone so one bash can't parse doesn't break the rest.
+const zsh = { histfile: path.join(os.homedir(), '.zsh_history'), aliases: '', hooks: false };
+const ZSH_DUMP = 'print -r -- $HISTFILE; alias -rL; zmodload zsh/parameter; ' +
+  'for f in ${(k)functions}; do s=${functions_source[$f]}; ' +
+  '[[ -n $s && $f != _* && $s != /usr/* && $s != /proc/* && ( -z $ZSH || $s != $ZSH/* ) ]] && ' +
+  'print -r -- "eval ${(qq)$(functions $f)} 2>/dev/null"; done; ' +
+  'hooks=(${(k)functions[chpwd]} $chpwd_functions); (( $#hooks )) && print -r -- "__tp_hooks=(${(qq)hooks})"; true';
 
 function loadZsh() {
-  execFile('zsh', ['-ic', 'print -r -- $HISTFILE; alias -rL'], { cwd: os.homedir(), timeout: 3000 }, (err, out) => {
+  execFile('zsh', ['-ic', ZSH_DUMP], { cwd: os.homedir(), timeout: 3000 }, (err, out) => {
     if (!out) return;
     const [file, ...aliases] = out.split('\n');
     if (file) zsh.histfile = file;
     zsh.aliases = aliases.join('\n');
+    zsh.hooks = aliases.some((l) => l.startsWith('__tp_hooks='));
   });
 }
 loadZsh();
@@ -183,7 +196,7 @@ class Session extends EventEmitter {
     const state = this.stateFor(msg.tab);
     const startCwd = msg.cwd && fs.existsSync(msg.cwd) ? msg.cwd : (fs.existsSync(state.cwd) ? state.cwd : os.homedir());
     const startEnv = { ...state.env };
-    const env = wrapperEnv(id, startEnv, String(msg.cmd));
+    const env = wrapperEnv(id, startEnv, startCwd, String(msg.cmd));
     const pty = spawnPty(SHELL, ['--noprofile', '--norc', '-c', WRAPPER], {
       cwd: startCwd, env, cols: msg.cols || 80, rows: msg.rows || 24,
     });
@@ -213,9 +226,17 @@ class Session extends EventEmitter {
       : path.resolve(state.cwd, arg.startsWith('~/') ? home + arg.slice(1) : arg);
     let ok = false;
     try { ok = !!target && fs.statSync(target).isDirectory(); } catch {}
-    if (ok && target !== state.cwd) { state.prev = state.cwd; state.cwd = target; }
+    const from = state.cwd;
+    if (ok && target !== from) { state.prev = from; state.cwd = target; }
     this.emit('message', { type: 'cd', tab: msg.tab, cmd: msg.cmd, ok });
     if (ok) this.emitState(msg.tab);
+    // ponytail: hooks run after the cd lands, so a command typed instantly may miss their env.
+    if (ok && target !== from && zsh.hooks) {
+      const startEnv = { ...state.env };
+      const env = { ...wrapperEnv('cd', startEnv, from, 'cd -- "$__TP_DIR"'), __TP_DIR: target };
+      execFile(SHELL, ['--noprofile', '--norc', '-c', WRAPPER], { cwd: from, env, timeout: 10000 },
+        () => collect(env, state, from, startEnv));
+    }
   }
 
   killAll() {
@@ -226,11 +247,11 @@ class Session extends EventEmitter {
   dispose() { this.killAll(); this.removeAllListeners(); }
 }
 
-function wrapperEnv(id, startEnv, cmd) {
+function wrapperEnv(id, startEnv, startCwd, cmd) {
   const base = path.join(tmpRoot, id.replace(/\W/g, '_') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
   return {
     ...startEnv, TERM: 'xterm-256color', COLORTERM: 'truecolor', SHELF_TERMINAL: '1',
-    __TP_CMD: cmd, __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
+    __TP_CMD: cmd, __TP_START: startCwd, __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
   };
 }
 
