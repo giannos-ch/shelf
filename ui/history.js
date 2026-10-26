@@ -16,11 +16,28 @@ export function matches(q) {
   return exact.concat(fuzzy).slice(0, 100);
 }
 
-export function toggleSearch(input) {
-  if (ui.hsearch) closeSearch();
-  else ui.hsearch = { input, q: input.value };
+// Suggestions under a prompt while typing; untrusted (scripted) input events, like picks and completions, close them.
+export function suggest(e) {
+  const input = e.target, q = input.value;
+  ui.hsearch = e.isTrusted && q.trim() ? { input, q, sel: 0 } : null;
 }
-// Puts `pick` (if any) into the input that opened the search and focuses it again.
+export function hideSuggest() { ui.hsearch = null; }
+
+// ↑/↓ move the selection, Tab picks. True when the key was used.
+export function navKey(e) {
+  const s = ui.hsearch;
+  if (s?.input !== e.target) return false;
+  const found = matches(s.q);
+  if (!found.length) return false;
+  const step = { ArrowUp: 1, ArrowDown: -1 }[e.key];
+  if (step) s.sel = Math.max(0, Math.min(found.length - 1, s.sel + step));
+  else if (e.key === 'Tab') closeSearch(found[s.sel]);
+  else return false;
+  e.preventDefault();
+  return true;
+}
+
+// Puts `pick` (if any) into the prompt the suggestions belong to and focuses it again.
 export function closeSearch(pick) {
   const input = ui.hsearch?.input;
   ui.hsearch = null;

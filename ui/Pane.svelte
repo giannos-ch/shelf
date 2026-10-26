@@ -6,7 +6,7 @@
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
-  import { toggleSearch } from './history.js';
+  import { suggest, hideSuggest, navKey } from './history.js';
   import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
@@ -108,13 +108,14 @@
       <span class="where"><bdi>{tilde(pane.cwd)} ❯</bdi></span>
       <input
         bind:this={inputEl} spellcheck="false" autocomplete="off" placeholder="run here… (i)"
-        oninput={() => (ui.comp = null)}
+        oninput={(e) => { ui.comp = null; suggest(e); }}
+        onblur={hideSuggest}
         onfocus={() => { select(pane.id); ui.mode = 'insert'; }}
         onkeydown={(e) => {
-          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; }
+          if (navKey(e)) return;
+          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; ui.hsearch = null; }
           else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.value = pane.cmd; }
-          else if (e.ctrlKey && e.key.toLowerCase() === 'r') { e.preventDefault(); toggleSearch(e.target); }
         }}
       />
     </div>

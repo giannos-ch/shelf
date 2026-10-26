@@ -3,7 +3,7 @@
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
-  import { history as hist, toggleSearch } from './history.js';
+  import { history as hist, suggest, hideSuggest, navKey } from './history.js';
   import { ui, els, handlers, activeTab, runCommand, tilde } from './store.svelte.js';
 
   let input = $state();
@@ -26,15 +26,15 @@
     send({ type: 'history-add', cmd: input.value });
     if (history[history.length - 1] !== cmd) history.push(cmd);
     histIdx = history.length; draft = '';
-    input.value = ''; autoGrow(); ui.comp = null;
+    input.value = ''; autoGrow(); ui.comp = ui.hsearch = null;
     runCommand(cmd, insert);
   }
 
   function onKeydown(e) {
     const v = input.value, pos = input.selectionStart;
+    if (navKey(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); runInput(e.ctrlKey); }
     else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(input, ui.active); }
-    else if (e.ctrlKey && e.key.toLowerCase() === 'r') { e.preventDefault(); toggleSearch(input); }
     else if (e.key === 'ArrowUp' && !v.slice(0, pos).includes('\n')) {
       if (histIdx > 0) { if (histIdx === history.length) draft = v; histIdx--; setInput(history[histIdx]); e.preventDefault(); }
     } else if (e.key === 'ArrowDown' && !v.slice(pos).includes('\n')) {
@@ -57,7 +57,8 @@
   <textarea
     bind:this={input} rows="1" spellcheck="false" autocomplete="off" autocapitalize="off"
     placeholder="Run a command…   (Esc: view mode · ? help)"
-    oninput={() => { autoGrow(); ui.comp = null; }}
+    oninput={(e) => { autoGrow(); ui.comp = null; suggest(e); }}
+    onblur={hideSuggest}
     onkeydown={onKeydown}
     onfocus={() => (ui.mode = 'prompt')}
   ></textarea>
