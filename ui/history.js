@@ -23,7 +23,7 @@ export function suggest(e) {
 }
 export function hideSuggest() { ui.hsearch = null; }
 
-// ↑/↓ move the selection, Tab picks. True when the key was used.
+// ↑/↓ move the selection, Tab (or → at the end of the line) picks. True when the key was used.
 export function navKey(e) {
   const s = ui.hsearch;
   if (s?.input !== e.target) return false;
@@ -31,7 +31,7 @@ export function navKey(e) {
   if (!found.length) return false;
   const step = { ArrowUp: 1, ArrowDown: -1 }[e.key];
   if (step) s.sel = Math.max(0, Math.min(found.length - 1, s.sel + step));
-  else if (e.key === 'Tab') closeSearch(found[s.sel]);
+  else if (e.key === 'Tab' || (e.key === 'ArrowRight' && e.target.selectionStart === e.target.value.length)) closeSearch(found[s.sel]);
   else return false;
   e.preventDefault();
   return true;
