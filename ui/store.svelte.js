@@ -15,7 +15,7 @@ export const ui = $state({
   active: 't1',
   panes: [],
   mode: 'prompt',          // 'prompt' | 'view' | 'insert' | 'side'
-  sidebar: true,
+  sidebar: false,
   sideSel: null,
   help: false,
   home: '',
