@@ -2,18 +2,30 @@ import { ui } from './store.svelte.js';
 
 export const history = { items: [] };   // oldest first; shared by every prompt
 
-// fzf-style: space-separated terms, substring matches before fuzzy ones, newest first.
-const isSub = (t, s) => { let i = 0; for (const c of s) if (c === t[i]) i++; return i >= t.length; };
+// fzf-style: space-separated terms, closest match first (prefix, then word start, then substring,
+// then fuzzy by how spread out it is), shorter commands first, then newest first.
+// Scores one term against a lowercased command; null when it doesn't match even fuzzily.
+function termScore(t, l) {
+  const i = l.indexOf(t);
+  if (i === 0) return 0;
+  if (i > 0) return /[a-z0-9]/.test(l[i - 1]) ? 2 : 1;
+  let j = 0, start = -1, end = -1;
+  for (let k = 0; k < l.length && j < t.length; k++) if (l[k] === t[j]) { if (!j++) start = k; end = k; }
+  return j < t.length ? null : 3 + end - start + 1 - t.length;
+}
+// ponytail: scores the whole history on every call; cache per query if it gets slow on huge histories.
 export function matches(q) {
-  const items = history.items, terms = q.toLowerCase().split(/\s+/).filter(Boolean), seen = new Set(), exact = [], fuzzy = [];
-  for (let i = items.length - 1; i >= 0 && exact.length < 100; i--) {
+  const items = history.items, terms = q.toLowerCase().split(/\s+/).filter(Boolean), seen = new Set(), found = [];
+  for (let i = items.length - 1; i >= 0; i--) {
     const h = items[i], l = h.toLowerCase();
     if (seen.has(h)) continue;
     seen.add(h);
-    if (terms.every((t) => l.includes(t))) exact.push(h);
-    else if (fuzzy.length < 100 && terms.every((t) => isSub(t, l))) fuzzy.push(h);
+    let score = 0;
+    for (const t of terms) { const s = termScore(t, l); if (s == null) { score = null; break; } score += s; }
+    if (score != null) found.push({ h, score });
   }
-  return exact.concat(fuzzy).slice(0, 100);
+  found.sort((a, b) => a.score - b.score || a.h.length - b.h.length);   // stable: ties stay newest first
+  return found.slice(0, 100).map((m) => m.h);
 }
 
 // Suggestions under a prompt while typing; untrusted (scripted) input events, like picks and completions, close them.
