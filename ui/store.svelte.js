@@ -88,7 +88,7 @@ function finish(p, code, ms, reason = null) {
     t.term.write('\x1b[?25l');
   }
   // Insert mode follows the terminal into its own prompt.
-  if (ui.mode === 'insert' && selected() === p) tick().then(() => setMode('insert'));
+  if (selected() === p) followInsert();
 }
 
 // ---------------------------------------------------------------- modes
@@ -101,6 +101,11 @@ export function setMode(mode) {
   ui.mode = mode;
   if (mode === 'prompt') els.prompt?.focus();
   else els.desk?.focus({ preventScroll: true });
+}
+
+// Insert mode is global: after the selected terminal changes, focus the new one (or fall back to view if there is none).
+function followInsert() {
+  if (ui.mode === 'insert') tick().then(() => ui.mode === 'insert' && setMode('insert'));
 }
 
 // ---------------------------------------------------------------- panes
@@ -118,7 +123,7 @@ function detach(p) {
     const map = fullRects(tab);
     tab.selected = ['down', 'up', 'right', 'left'].map((d) => L.neighbor(map, p.id, d)).find(Boolean) ?? null;
     if (tab.maximized === p.id) tab.maximized = tab.selected;
-    if (ui.mode === 'insert' && tab.id === ui.active) setMode('view');
+    if (tab.id === ui.active) followInsert();
   }
   tab.tree = L.remove(tab.tree, p.id);
   if (tab.maximized === p.id) tab.maximized = null;
@@ -157,6 +162,7 @@ export function select(id) {
   if (!tab || !id) return;
   tab.selected = id;
   if (tab.maximized) tab.maximized = id;
+  followInsert();
 }
 
 export function closePane(p = selected()) {
@@ -171,8 +177,7 @@ export async function reopen(p = closedPanes()[0]) {
   p.closed = false;
   p.tab = ui.active;
   insertInto(activeTab(), p.id);
-  await tick();
-  if (ui.mode === 'insert') setMode('view');
+  followInsert();
 }
 
 export function destroy(p = selected()) {
@@ -298,7 +303,7 @@ export function gotoTab(i) {
   const t = ui.tabs[i];
   if (!t) return;
   ui.active = t.id;
-  if (ui.mode === 'insert') setMode('view');
+  followInsert();
 }
 const activeIndex = () => ui.tabs.findIndex((t) => t.id === ui.active);
 export function shiftTab(d) { gotoTab((activeIndex() + d + ui.tabs.length) % ui.tabs.length); }

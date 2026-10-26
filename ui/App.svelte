@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import Pane from './Pane.svelte';
   import Prompt from './Prompt.svelte';
   import { SHORTCUTS, onKeydown } from './keys.js';
@@ -17,7 +17,7 @@
 
   function gotoTabId(id) {
     ui.active = id;
-    setMode(ui.mode === 'insert' ? 'view' : ui.mode);
+    tick().then(() => setMode(ui.mode));
   }
 
   onMount(() => { els.desk = desk; init(); setMode('prompt'); });   // not $effect: init reads ui.tabs, so a new tab would re-run it (hello resets every tab)

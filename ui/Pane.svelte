@@ -71,7 +71,7 @@
   function onPointerDown() {
     if (selected && ui.mode === 'insert') return;
     select(pane.id);
-    if (ui.mode !== 'view') setMode('view');
+    if (ui.mode !== 'view' && ui.mode !== 'insert') setMode('view');
   }
 </script>
 
