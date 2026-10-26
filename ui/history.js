@@ -86,13 +86,16 @@ export function suggest(e) {
 export function hideSuggest() { ui.hsearch = null; }
 
 // ↑/↓ move the selection, Enter or Tab (or → at the end of the line) picks; picking closes the list,
-// so a second Enter runs the pick. Shift+Delete removes the selected match from history. True when the key was used.
+// so a second Enter runs the pick (one Enter does when the pick is already what was typed). Shift+Delete removes the selected match from history. True when the key was used.
 export function navKey(e) {
   const s = ui.hsearch;
   if (s?.input !== e.target) return false;
   const found = matches(s.q);
   if (!found.length) return false;
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { closeSearch(found[s.sel]); e.preventDefault(); return true; }
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    if (found[s.sel] === e.target.value) { ui.hsearch = null; return false; }   // nothing to pick: let Enter run it
+    closeSearch(found[s.sel]); e.preventDefault(); return true;
+  }
   if (e.key === 'Delete' && e.shiftKey) { forgetMatch(s.sel); e.preventDefault(); return true; }
   const step = { ArrowUp: 1, ArrowDown: -1 }[e.key];
   if (step) s.sel = Math.max(0, Math.min(found.length - 1, s.sel + step));
