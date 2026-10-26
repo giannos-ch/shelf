@@ -39,15 +39,29 @@ export function recall(input, dir) {
 }
 
 // fzf-style: space-separated terms, closest match first (prefix, then word start, then substring,
-// then fuzzy by how spread out it is), shorter commands first, then newest first.
-// Scores one term against a lowercased command; null when it doesn't match even fuzzily.
+// then abbreviation; earlier in the command first within each), shorter commands first, then newest first.
+// Scores one term against a lowercased command; null when it doesn't match. Abbreviations (`gcm` for
+// `git commit -m`) match each char right after the previous one or at a word start, must start in the
+// first two words and end within a word or so per char; fewer word hops and an earlier start score better.
+// All-digit terms only match as substrings.
+// ponytail: greedy, prefers the next char over a word start; can miss an alignment, backtrack if it bites.
 function termScore(t, l) {
-  const i = l.indexOf(t);
+  const wordStart = (k) => k === 0 || !/[a-z0-9]/.test(l[k - 1]);
+  const word = (k) => l.slice(0, k).split(/\s+/).length - 1;   // which space-separated word k is in
+  let i = l.indexOf(t);
+  while (i > 0 && !wordStart(i)) { const n = l.indexOf(t, i + 1); if (n < 0) break; i = n; }   // a word-start one if any
   if (i === 0) return 0;
-  if (i > 0) return /[a-z0-9]/.test(l[i - 1]) ? 2 : 1;
-  let j = 0, start = -1, end = -1;
-  for (let k = 0; k < l.length && j < t.length; k++) if (l[k] === t[j]) { if (!j++) start = k; end = k; }
-  return j < t.length ? null : 3 + end - start + 1 - t.length;
+  if (i > 0) return (wordStart(i) ? 1 : 2) + Math.min(word(i), 9) / 10;
+  if (/^\d+$/.test(t)) return null;
+  let k = -1, hops = -1, first = -1;
+  for (const c of t) {
+    if (k >= 0 && l[k + 1] === c) { k++; continue; }
+    do k++; while (k < l.length && !(l[k] === c && wordStart(k)));
+    if (k >= l.length) return null;
+    if (first < 0) first = word(k);
+    hops++;
+  }
+  return first > 1 || word(k) > t.length + 1 ? null : 3 + hops + first;
 }
 // ponytail: scores the whole history on every call; cache per query if it gets slow on huge histories.
 export function matches(q) {
