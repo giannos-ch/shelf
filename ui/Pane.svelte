@@ -116,6 +116,7 @@
           if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; ui.hsearch = null; }
           else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.value = pane.cmd; }
+          else if (e.ctrlKey && e.key === 'd' && !e.target.value) { e.preventDefault(); closePane(pane); }
         }}
       />
     </div>
