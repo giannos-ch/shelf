@@ -64,10 +64,24 @@ export function matches(q) {
   return found.slice(0, 100).map((m) => m.h);
 }
 
-// Suggestions under a prompt while typing; untrusted (scripted) input events, like picks and completions, close them.
+// Replaces input[start, end) with `text` as one edit Ctrl+Z can undo (setting .value would clear the undo stack).
+// execCommand only edits the focused element; an unfocused input still changes, just not undoably.
+let scripted = false;
+export function replaceText(input, start, end, text) {
+  input.setSelectionRange(start, end);
+  scripted = true;
+  try {
+    if (document.activeElement !== input || !document.execCommand('insertText', false, text)) {
+      input.setRangeText(text, start, end, 'end');
+      input.dispatchEvent(new Event('input'));
+    }
+  } finally { scripted = false; }
+}
+
+// Suggestions under a prompt while typing; scripted edits, like picks and completions, close them.
 export function suggest(e) {
   const input = e.target, q = input.value;
-  ui.hsearch = e.isTrusted && q.trim() ? { input, q, sel: 0 } : null;
+  ui.hsearch = e.isTrusted && !scripted && q.trim() ? { input, q, sel: 0 } : null;
 }
 export function hideSuggest() { ui.hsearch = null; }
 
@@ -100,10 +114,6 @@ export function closeSearch(pick) {
   const input = ui.hsearch?.input;
   ui.hsearch = null;
   if (!input) return;
-  if (pick != null) {
-    input.value = pick;
-    input.selectionStart = input.selectionEnd = pick.length;
-    input.dispatchEvent(new Event('input'));
-  }
+  if (pick != null) replaceText(input, 0, input.value.length, pick);
   input.focus();
 }

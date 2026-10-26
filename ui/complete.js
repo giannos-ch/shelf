@@ -1,5 +1,6 @@
 import { send } from './conn.js';
 import { ui, handlers } from './store.svelte.js';
+import { replaceText } from './history.js';
 
 let req = 0, target = null;
 
@@ -12,10 +13,7 @@ const shellEscape = (s) => s.replace(/([ '"()&;|<>$`\\!*?[\]{}#])/g, '\\$1');
 function replaceWord(word, replacement) {
   const input = target, pos = input.selectionStart, before = input.value.slice(0, pos);
   if (!before.endsWith(word)) return;
-  const head = before.slice(0, before.length - word.length);
-  input.value = head + replacement + input.value.slice(pos);
-  input.selectionStart = input.selectionEnd = head.length + replacement.length;
-  input.dispatchEvent(new Event('input'));
+  replaceText(input, pos - word.length, pos, replacement);
 }
 function commonPrefix(items) {
   let p = items[0];
