@@ -28,15 +28,20 @@
   });
   const badge = $derived(pane.reason || (pane.status === 'err' ? `exit ${pane.code}` : ''));
 
+  // xterm's defaults warn (OSC 8 confirm, blank-window trick Electron denies); open directly.
+  // In Electron, main.js's setWindowOpenHandler hands the URL to the system browser.
+  const openLink = (uri) => window.open(uri, '_blank', 'noopener');
+
   function xterm(node) {
     const term = new Terminal({
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--mono'),
       fontSize: 13, lineHeight: 1.15, cursorBlink: true, scrollback: 10000,
       theme: THEME, macOptionIsMeta: true, allowTransparency: false,
+      linkHandler: { activate: (e, uri) => openLink(uri) },
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon());
+    term.loadAddon(new WebLinksAddon((e, uri) => openLink(uri)));
     term.open(node);
     const entry = { term, fit, lastSize: { cols: 0, rows: 0 } };
     terms.set(pane.id, entry);
