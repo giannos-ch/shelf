@@ -183,11 +183,7 @@ class Session extends EventEmitter {
     const state = this.stateFor(msg.tab);
     const startCwd = msg.cwd && fs.existsSync(msg.cwd) ? msg.cwd : (fs.existsSync(state.cwd) ? state.cwd : os.homedir());
     const startEnv = { ...state.env };
-    const base = path.join(tmpRoot, id.replace(/\W/g, '_') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
-    const env = {
-      ...startEnv, TERM: 'xterm-256color', COLORTERM: 'truecolor', SHELF_TERMINAL: '1',
-      __TP_CMD: String(msg.cmd), __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
-    };
+    const env = wrapperEnv(id, startEnv, String(msg.cmd));
     const pty = spawnPty(SHELL, ['--noprofile', '--norc', '-c', WRAPPER], {
       cwd: startCwd, env, cols: msg.cols || 80, rows: msg.rows || 24,
     });
@@ -198,9 +194,7 @@ class Session extends EventEmitter {
     pty.onExit((code) => {
       if (this.runs.get(id)?.pty !== pty) return;   // superseded by a rerun
       this.runs.delete(id);
-      const endCwd = readText(env.__TP_STATE);
-      applyChanges(state, startCwd, startEnv, endCwd, readJson(env.__TP_ENV));
-      for (const f of [env.__TP_STATE, env.__TP_ENV]) fs.rm(f, { force: true }, () => {});
+      const endCwd = collect(env, state, startCwd, startEnv);
       // Give trailing output a moment to flush before announcing exit.
       setTimeout(() => {
         this.emit('message', { type: 'exit', id, code, ms: Date.now() - started, cwd: endCwd || startCwd });
@@ -230,6 +224,22 @@ class Session extends EventEmitter {
   }
 
   dispose() { this.killAll(); this.removeAllListeners(); }
+}
+
+function wrapperEnv(id, startEnv, cmd) {
+  const base = path.join(tmpRoot, id.replace(/\W/g, '_') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
+  return {
+    ...startEnv, TERM: 'xterm-256color', COLORTERM: 'truecolor', SHELF_TERMINAL: '1',
+    __TP_CMD: cmd, __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
+  };
+}
+
+// Reads what a WRAPPER run left behind into `state`; returns its final cwd.
+function collect(env, state, startCwd, startEnv) {
+  const endCwd = readText(env.__TP_STATE);
+  applyChanges(state, startCwd, startEnv, endCwd, readJson(env.__TP_ENV));
+  for (const f of [env.__TP_STATE, env.__TP_ENV]) fs.rm(f, { force: true }, () => {});
+  return endCwd;
 }
 
 // Apply only what *this* command changed, and only where nothing else changed
