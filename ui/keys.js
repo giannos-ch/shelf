@@ -14,7 +14,7 @@ const digits = (mod) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => mod + n);
 export const SHORTCUTS = [
   { mode: 'any', label: 'Ctrl+`', keys: ['Ctrl+`'], desc: 'Focus the prompt', run: () => S.setMode('prompt') },
 
-  { mode: 'prompt', label: 'Enter', desc: 'Run and type into its terminal' },
+  { mode: 'prompt', label: 'Enter', desc: 'Run and type into its terminal (with history matches shown: pick the selected one)' },
   { mode: 'prompt', label: 'Ctrl+Enter', desc: 'Run and stay in the prompt' },
   { mode: 'prompt', label: 'Shift+Enter', desc: 'New line' },
   { mode: 'prompt', label: 'Tab', desc: 'Pick the selected history match (→ at line end too), else complete' },
@@ -25,7 +25,7 @@ export const SHORTCUTS = [
 
   { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode (closes completions or suggestions first)', run: esc(() => S.setMode('view')) },
   { mode: 'insert', label: 'Tab', desc: 'On a finished terminal: pick the selected history match, else complete' },
-  { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal' },
+  { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal (with history matches shown: pick one)' },
   { mode: 'insert', label: '↑', desc: 'On a finished terminal: recall its last command' },
   { mode: 'insert', label: 'Ctrl+D', desc: 'On a finished terminal with an empty prompt: close it' },
   { mode: 'insert', label: 'Shift+Esc', keys: ['Shift+Escape'], desc: 'Send Esc to the program', run: () => S.sendEsc() },
