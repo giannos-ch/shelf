@@ -14,8 +14,8 @@ const digits = (mod) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => mod + n);
 export const SHORTCUTS = [
   { mode: 'any', label: 'Ctrl+`', keys: ['Ctrl+`'], desc: 'Focus the prompt', run: () => S.setMode('prompt') },
 
-  { mode: 'prompt', label: 'Enter', desc: 'Run the command' },
-  { mode: 'prompt', label: 'Ctrl+Enter', desc: 'Run and type into its terminal' },
+  { mode: 'prompt', label: 'Enter', desc: 'Run and type into its terminal' },
+  { mode: 'prompt', label: 'Ctrl+Enter', desc: 'Run and stay in the prompt' },
   { mode: 'prompt', label: 'Shift+Enter', desc: 'New line' },
   { mode: 'prompt', label: 'Tab', desc: 'Pick the selected history match, else complete' },
   { mode: 'prompt', label: '↑ ↓ (typing)', desc: 'Select among history matches shown while typing' },

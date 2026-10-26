@@ -33,7 +33,7 @@
   function onKeydown(e) {
     const v = input.value, pos = input.selectionStart;
     if (navKey(e)) return;
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); runInput(e.ctrlKey); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); runInput(!e.ctrlKey); }
     else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(input, ui.active); }
     else if (e.key === 'ArrowUp' && !v.slice(0, pos).includes('\n')) {
       if (histIdx > 0) { if (histIdx === history.length) draft = v; histIdx--; setInput(history[histIdx]); e.preventDefault(); }
