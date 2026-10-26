@@ -23,6 +23,7 @@ export const ui = $state({
   desk: { w: 0, h: 0 },
   drag: null,
   comp: null,
+  hsearch: null,           // { input, q } while a history search is open
   now: Date.now(),
 });
 setInterval(() => { if (ui.panes.some((p) => p.status === 'running')) ui.now = Date.now(); }, 1000);

@@ -1,6 +1,9 @@
 import * as S from './store.svelte.js';
+import { closeSearch } from './history.js';
 
 const { ui } = S;
+// Esc closes completions, then a history search, before acting.
+const esc = (act) => () => (ui.comp ? (ui.comp = null) : ui.hsearch ? closeSearch() : act());
 const DIR = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
 const SIDE = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'top', ArrowDown: 'bottom' };
 const arrows = (mod) => Object.keys(DIR).map((k) => mod + k);
@@ -16,13 +19,15 @@ export const SHORTCUTS = [
   { mode: 'prompt', label: 'Shift+Enter', desc: 'New line' },
   { mode: 'prompt', label: 'Tab', desc: 'Complete' },
   { mode: 'prompt', label: '↑ ↓', desc: 'History' },
-  { mode: 'prompt', label: 'Esc', keys: ['Escape'], desc: 'View mode (closes completions first)', run: () => (ui.comp ? (ui.comp = null) : S.setMode('view')) },
+  { mode: 'prompt', label: 'Ctrl+R', desc: 'Search history (↑ ↓ select, Enter picks)' },
+  { mode: 'prompt', label: 'Esc', keys: ['Escape'], desc: 'View mode (closes completions or search first)', run: esc(() => S.setMode('view')) },
   { mode: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+l'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
 
-  { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode (closes completions first)', run: () => (ui.comp ? (ui.comp = null) : S.setMode('view')) },
+  { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode (closes completions or search first)', run: esc(() => S.setMode('view')) },
   { mode: 'insert', label: 'Tab', desc: 'On a finished terminal: complete' },
   { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal' },
   { mode: 'insert', label: '↑', desc: 'On a finished terminal: recall its last command' },
+  { mode: 'insert', label: 'Ctrl+R', desc: 'On a finished terminal: search history' },
   { mode: 'insert', label: 'Shift+Esc', keys: ['Shift+Escape'], desc: 'Send Esc to the program', run: () => S.sendEsc() },
 
   { mode: 'view', label: '←↑→↓', keys: arrows(''), desc: 'Select the terminal in that direction', run: (k) => S.selectDir(DIR[arrowOf(k)]) },

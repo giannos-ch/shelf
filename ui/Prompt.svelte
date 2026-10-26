@@ -2,16 +2,18 @@
   import { send } from './conn.js';
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
+  import HistorySearch from './HistorySearch.svelte';
+  import { history as hist, toggleSearch } from './history.js';
   import { ui, els, handlers, activeTab, runCommand, tilde } from './store.svelte.js';
 
   let input = $state();
   const cwd = $derived(activeTab()?.cwd || '');
 
-  let history = [];
+  let history = hist.items;
   let histIdx = 0, draft = '';
   handlers.history = ({ items }) => {
     const atEnd = histIdx === history.length;
-    history = items;
+    history = hist.items = items;
     if (atEnd || histIdx > history.length) histIdx = history.length;
   };
 
@@ -32,6 +34,7 @@
     const v = input.value, pos = input.selectionStart;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); runInput(e.ctrlKey); }
     else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(input, ui.active); }
+    else if (e.ctrlKey && e.key.toLowerCase() === 'r') { e.preventDefault(); toggleSearch(input); }
     else if (e.key === 'ArrowUp' && !v.slice(0, pos).includes('\n')) {
       if (histIdx > 0) { if (histIdx === history.length) draft = v; histIdx--; setInput(history[histIdx]); e.preventDefault(); }
     } else if (e.key === 'ArrowDown' && !v.slice(pos).includes('\n')) {
@@ -48,6 +51,7 @@
 </script>
 
 {#if ui.comp && ui.comp.input === input}<Completions />{/if}
+{#if ui.hsearch && ui.hsearch.input === input}<HistorySearch />{/if}
 <div id="prompt">
   <div id="cwd" title={cwd}><bdi>{tilde(cwd)} ❯</bdi></div>
   <textarea

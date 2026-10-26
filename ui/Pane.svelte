@@ -5,6 +5,8 @@
   import { send } from './conn.js';
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
+  import HistorySearch from './HistorySearch.svelte';
+  import { toggleSearch } from './history.js';
   import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
@@ -101,6 +103,7 @@
   </div>
   {#if pane.status !== 'running'}
     {#if ui.comp && ui.comp.input === inputEl}<Completions />{/if}
+    {#if ui.hsearch && ui.hsearch.input === inputEl}<HistorySearch />{/if}
     <div class="pane-prompt">
       <span class="where"><bdi>{tilde(pane.cwd)} ❯</bdi></span>
       <input
@@ -111,6 +114,7 @@
           if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; }
           else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.value = pane.cmd; }
+          else if (e.ctrlKey && e.key.toLowerCase() === 'r') { e.preventDefault(); toggleSearch(e.target); }
         }}
       />
     </div>
