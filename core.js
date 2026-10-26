@@ -106,20 +106,33 @@ function loadZsh() {
 loadZsh();
 
 // zsh "metafies" history bytes 0x00 and 0x83-0xa2 as 0x83, byte ^ 0x20.
-function readHistory() {
-  let buf;
-  try { buf = fs.readFileSync(zsh.histfile); } catch { return []; }
+function unmetafy(buf) {
   const out = Buffer.alloc(buf.length);
   let n = 0;
   for (let i = 0; i < buf.length; i++) out[n++] = buf[i] === 0x83 && i + 1 < buf.length ? buf[++i] ^ 0x20 : buf[i];
-  const items = [];
-  let cur = null;
-  for (const line of out.toString('utf8', 0, n).split('\n')) {
-    cur = cur === null ? line.replace(/^: \d+:\d+;/, '') : cur + '\n' + line;
-    if (cur.endsWith('\\')) { cur = cur.slice(0, -1); continue; }
-    if (cur && items[items.length - 1] !== cur) items.push(cur);
-    cur = null;
+  return out.subarray(0, n);
+}
+
+// The history file as { raw, cmd } entries: the entry's bytes (a line ending in a backslash
+// continues it) and its decoded command.
+function historyEntries() {
+  let buf;
+  try { buf = fs.readFileSync(zsh.histfile); } catch { return []; }
+  const entries = [];
+  let start = 0;
+  for (let i = 0; i <= buf.length; i++) {
+    if (i < buf.length && (buf[i] !== 0x0a || buf[i - 1] === 0x5c)) continue;
+    const raw = buf.subarray(start, i + 1);
+    start = i + 1;
+    const cmd = unmetafy(raw).toString('utf8').replace(/^: \d+:\d+;/, '').replace(/\n$/, '').replace(/\\\n/g, '\n');
+    if (raw.length) entries.push({ raw, cmd });
   }
+  return entries;
+}
+
+function readHistory() {
+  const items = [];
+  for (const { cmd } of historyEntries()) if (cmd && items[items.length - 1] !== cmd) items.push(cmd);
   return items;
 }
 
