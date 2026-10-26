@@ -1,6 +1,35 @@
 import { ui } from './store.svelte.js';
+import { send } from './conn.js';
 
 export const history = { items: [] };   // oldest first; shared by every prompt
+
+// Called with the items reloaded from the history file.
+export function setHistory(items) {
+  history.items = items;
+  if (nav && nav.idx > items.length) nav.idx = items.length;
+}
+
+// Every prompt records what it runs, so ↑ in any prompt reaches commands run from the others.
+export function record(cmd) {
+  const c = cmd.trim();
+  if (!c) return;
+  send({ type: 'history-add', cmd });
+  if (history.items[history.items.length - 1] !== c) history.items.push(c);
+  nav = null;
+}
+
+// ↑/↓ through history (dir -1 / +1) in `input`, coming back to what was typed past the newest;
+// only one prompt navigates at a time. The text to show, or null at either end.
+let nav = null;   // { input, idx, draft }
+export function recall(input, dir) {
+  const items = history.items;
+  if (nav?.input !== input) nav = { input, idx: items.length, draft: '' };
+  const idx = nav.idx + dir;
+  if (idx < 0 || idx > items.length) return null;
+  if (nav.idx === items.length) nav.draft = input.value;
+  nav.idx = idx;
+  return idx === items.length ? nav.draft : items[idx];
+}
 
 // fzf-style: space-separated terms, closest match first (prefix, then word start, then substring,
 // then fuzzy by how spread out it is), shorter commands first, then newest first.

@@ -6,7 +6,7 @@
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
-  import { suggest, hideSuggest, navKey } from './history.js';
+  import { suggest, hideSuggest, navKey, record, recall } from './history.js';
   import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
@@ -113,9 +113,13 @@
         onfocus={() => { select(pane.id); ui.mode = 'insert'; }}
         onkeydown={(e) => {
           if (navKey(e)) return;
-          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); runInPane(pane, e.target.value); e.target.value = ''; ui.hsearch = null; }
+          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); record(e.target.value); runInPane(pane, e.target.value); e.target.value = ''; ui.hsearch = null; }
           else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
-          else if (e.key === 'ArrowUp') { e.preventDefault(); e.target.value = pane.cmd; }
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const h = recall(e.target, e.key === 'ArrowUp' ? -1 : 1);
+            if (h != null) { e.target.value = h; e.target.selectionStart = e.target.selectionEnd = h.length; }
+          }
           else if (e.ctrlKey && e.key === 'd' && !e.target.value) { e.preventDefault(); closePane(pane); }
         }}
       />

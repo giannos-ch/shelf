@@ -3,19 +3,13 @@
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
-  import { history as hist, suggest, hideSuggest, navKey } from './history.js';
+  import { setHistory, record, recall, suggest, hideSuggest, navKey } from './history.js';
   import { ui, els, handlers, activeTab, runCommand, tilde } from './store.svelte.js';
 
   let input = $state();
   const cwd = $derived(activeTab()?.cwd || '');
 
-  let history = hist.items;
-  let histIdx = 0, draft = '';
-  handlers.history = ({ items }) => {
-    const atEnd = histIdx === history.length;
-    history = hist.items = items;
-    if (atEnd || histIdx > history.length) histIdx = history.length;
-  };
+  handlers.history = ({ items }) => setHistory(items);
 
   function autoGrow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight + 2, 180) + 'px'; }
   function setInput(v) { input.value = v; autoGrow(); input.selectionStart = input.selectionEnd = v.length; }
@@ -23,9 +17,7 @@
   function runInput(insert) {
     const cmd = input.value.trim();
     if (!cmd) return;
-    send({ type: 'history-add', cmd: input.value });
-    if (history[history.length - 1] !== cmd) history.push(cmd);
-    histIdx = history.length; draft = '';
+    record(input.value);
     input.value = ''; autoGrow(); ui.comp = ui.hsearch = null;
     runCommand(cmd, insert);
   }
@@ -35,10 +27,9 @@
     if (navKey(e)) return;
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); runInput(!e.ctrlKey); }
     else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(input, ui.active); }
-    else if (e.key === 'ArrowUp' && !v.slice(0, pos).includes('\n')) {
-      if (histIdx > 0) { if (histIdx === history.length) draft = v; histIdx--; setInput(history[histIdx]); e.preventDefault(); }
-    } else if (e.key === 'ArrowDown' && !v.slice(pos).includes('\n')) {
-      if (histIdx < history.length) { histIdx++; setInput(histIdx === history.length ? draft : history[histIdx]); e.preventDefault(); }
+    else if ((e.key === 'ArrowUp' && !v.slice(0, pos).includes('\n')) || (e.key === 'ArrowDown' && !v.slice(pos).includes('\n'))) {
+      const h = recall(input, e.key === 'ArrowUp' ? -1 : 1);
+      if (h != null) { setInput(h); e.preventDefault(); }
     }
   }
 

@@ -26,7 +26,7 @@ export const SHORTCUTS = [
   { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode (closes completions or suggestions first)', run: esc(() => S.setMode('view')) },
   { mode: 'insert', label: 'Tab', desc: 'On a finished terminal: pick the selected history match, else complete' },
   { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal (with history matches shown: pick one)' },
-  { mode: 'insert', label: '↑', desc: 'On a finished terminal: recall its last command' },
+  { mode: 'insert', label: '↑ ↓', desc: 'On a finished terminal: history (shared with the main prompt)' },
   { mode: 'insert', label: 'Ctrl+D', desc: 'On a finished terminal with an empty prompt: close it' },
   { mode: 'insert', label: 'Shift+Esc', keys: ['Shift+Escape'], desc: 'Send Esc to the program', run: () => S.sendEsc() },
 
