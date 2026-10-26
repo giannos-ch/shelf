@@ -136,6 +136,17 @@ function readHistory() {
   return items;
 }
 
+// ponytail: zsh sessions open while this runs may write the entry back from their in-memory history.
+function deleteHistory(cmd) {
+  const entries = historyEntries(), keep = entries.filter((e) => e.cmd !== cmd);
+  if (keep.length === entries.length) return;
+  try {
+    const file = fs.realpathSync(zsh.histfile), tmp = file + '.shelf-tmp';   // a symlinked HISTFILE stays a symlink
+    fs.writeFileSync(tmp, Buffer.concat(keep.map((e) => e.raw)), { mode: 0o600 });
+    fs.renameSync(tmp, file);
+  } catch {}
+}
+
 // ponytail: ignores zsh's HISTFILE.LOCK; a single small O_APPEND write is safe enough.
 function appendHistory(cmd) {
   if (!cmd.trim() || cmd.startsWith(' ')) return;
@@ -191,6 +202,7 @@ class Session extends EventEmitter {
       case 'tab-open': this.stateFor(msg.tab, msg.from); this.emitState(msg.tab); break;
       case 'history': this.emit('message', { type: 'history', items: readHistory() }); break;
       case 'history-add': appendHistory(String(msg.cmd || '')); break;
+      case 'history-delete': deleteHistory(String(msg.cmd || '')); break;
       case 'tab-close': this.tabs.delete(String(msg.tab)); break;
       case 'run': this.run(msg); break;
       case 'cd': this.cd(msg); break;

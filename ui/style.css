@@ -57,11 +57,11 @@ kbd {
 .tab.drop { background: rgba(91,141,239,.18); border-color: var(--accent); }
 .tab .num { color: var(--muted); font-size: 10.5px; }
 .tab .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tab .x, .closed-item .x {
+.tab .x, .closed-item .x, .hrow .x {
   border: 0; background: transparent; color: var(--muted); cursor: pointer;
   width: 18px; height: 18px; border-radius: 4px; font-size: 10px; display: grid; place-items: center; flex: none;
 }
-.tab .x:hover, .closed-item .x:hover { background: rgba(248,81,73,.18); color: var(--err); }
+.tab .x:hover, .closed-item .x:hover, .hrow .x:hover { background: rgba(248,81,73,.18); color: var(--err); }
 .spacer { flex: 1; }
 
 /* ------------------------------------------------------------- sidebar */
@@ -184,11 +184,13 @@ kbd {
 .pane .hsearch { border-top: 1px solid var(--line); padding-bottom: 4px; }
 .pane .hlist { max-height: 40vh; }
 .hlist { display: flex; flex-direction: column-reverse; max-height: 240px; overflow-y: auto; }
-.hlist button {
-  text-align: left; border: 0; background: none; color: var(--text); padding: 2px 8px; border-radius: 4px;
-  font: 12.5px var(--mono); white-space: pre; overflow: hidden; text-overflow: ellipsis; cursor: pointer; flex: none;
+.hrow { display: flex; align-items: center; border-radius: 4px; flex: none; }
+.hrow .pick {
+  flex: 1; min-width: 0; text-align: left; border: 0; background: none; color: var(--text); padding: 2px 8px;
+  font: 12.5px var(--mono); white-space: pre; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
 }
-.hlist button.sel { background: rgba(227,179,65,.12); color: var(--accent); }
+.hrow.sel { background: rgba(227,179,65,.12); }
+.hrow.sel .pick { color: var(--accent); }
 
 #prompt { display: flex; align-items: flex-end; gap: 10px; padding: 8px 10px 10px; }
 #cwd {

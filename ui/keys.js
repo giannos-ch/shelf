@@ -19,6 +19,7 @@ export const SHORTCUTS = [
   { mode: 'prompt', label: 'Shift+Enter', desc: 'New line' },
   { mode: 'prompt', label: 'Tab', desc: 'Pick the selected history match (→ at line end too), else complete' },
   { mode: 'prompt', label: '↑ ↓ (typing)', desc: 'Select among history matches shown while typing' },
+  { mode: 'prompt', label: 'Shift+Delete', desc: 'Remove the selected history match from history (terminal prompts too)' },
   { mode: 'prompt', label: '↑ ↓', desc: 'History' },
   { mode: 'prompt', label: 'Esc', keys: ['Escape'], desc: 'View mode (closes completions or suggestions first)', run: esc(() => S.setMode('view')) },
   { mode: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+l'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },

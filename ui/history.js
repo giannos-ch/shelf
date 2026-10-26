@@ -18,6 +18,13 @@ export function record(cmd) {
   nav = null;
 }
 
+// Removes every copy of `cmd` from history, here and in the history file.
+export function forget(cmd) {
+  history.items = history.items.filter((h) => h !== cmd);
+  send({ type: 'history-delete', cmd });
+  nav = null;
+}
+
 // ↑/↓ through history (dir -1 / +1) in `input`, coming back to what was typed past the newest;
 // only one prompt navigates at a time. The text to show, or null at either end.
 let nav = null;   // { input, idx, draft }
@@ -65,19 +72,27 @@ export function suggest(e) {
 export function hideSuggest() { ui.hsearch = null; }
 
 // ↑/↓ move the selection, Enter or Tab (or → at the end of the line) picks; picking closes the list,
-// so a second Enter runs the pick. True when the key was used.
+// so a second Enter runs the pick. Shift+Delete removes the selected match from history. True when the key was used.
 export function navKey(e) {
   const s = ui.hsearch;
   if (s?.input !== e.target) return false;
   const found = matches(s.q);
   if (!found.length) return false;
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { closeSearch(found[s.sel]); e.preventDefault(); return true; }
+  if (e.key === 'Delete' && e.shiftKey) { forgetMatch(s.sel); e.preventDefault(); return true; }
   const step = { ArrowUp: 1, ArrowDown: -1 }[e.key];
   if (step) s.sel = Math.max(0, Math.min(found.length - 1, s.sel + step));
   else if (e.key === 'Tab' || (e.key === 'ArrowRight' && e.target.selectionStart === e.target.value.length)) closeSearch(found[s.sel]);
   else return false;
   e.preventDefault();
   return true;
+}
+
+// Removes the i-th shown match from history, keeping the selection on the same command.
+export function forgetMatch(i) {
+  const s = ui.hsearch, found = matches(s.q);
+  forget(found[i]);
+  ui.hsearch = { ...s, sel: Math.max(0, Math.min(s.sel - (i < s.sel), found.length - 2)) };   // a new object so the list recomputes
 }
 
 // Puts `pick` (if any) into the prompt the suggestions belong to and focuses it again.
