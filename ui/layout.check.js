@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { insert, remove, rects, neighbor, swap, nudge, leaves, dropTarget, equalize } from './layout.js';
+import { insert, remove, rects, neighbor, swap, nudge, leaves, dropTarget, equalize, rotate } from './layout.js';
 
 let t = insert(null, null, 'a');
 assert.deepEqual(t, { pane: 'a' });
@@ -44,5 +44,16 @@ assert.equal(d.target, null);
 assert.equal(d.side, 'top');
 assert.equal(dropTarget(panes, box, 200, 300, 'a'), null);
 assert.equal(dropTarget(panes, box, 200, 300, 'b').side, 'bottom');
+
+// col[a, row[b, d], c]: b and d stack, merging into the column; then b and d go side by side again.
+const rot = rotate(t, 'b');
+assert.deepEqual(rot.dir, 'col');
+assert.deepEqual(leaves(rot), ['a', 'b', 'd', 'c']);
+assert.equal(rot.children.length, 4);
+const back = rotate(rot, 'b');
+assert.equal(back.children[1].dir, 'row');
+assert.deepEqual(leaves(back.children[1]), ['b', 'd']);
+assert.ok(Math.abs(back.sizes.reduce((x, y) => x + y) - 1) < 1e-9);
+assert.deepEqual(rotate({ pane: 'a' }, 'a'), { pane: 'a' });
 
 console.log('layout ok');

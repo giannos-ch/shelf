@@ -302,6 +302,11 @@ export function swapDir(dir) {
   if (other) tab.tree = L.swap(tab.tree, tab.selected, other);
 }
 
+export function rotate() {
+  const tab = activeTab();
+  if (tab?.selected && !tab.maximized) tab.tree = L.rotate(tab.tree, tab.selected);
+}
+
 export function nudge(side) {
   const tab = activeTab();
   if (tab?.selected && !tab.maximized) tab.tree = L.nudge(tab.tree, tab.selected, side);

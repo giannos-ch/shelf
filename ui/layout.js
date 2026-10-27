@@ -68,6 +68,25 @@ export function remove(tree, id) {
   return split(tree.dir, children, sizes.map((s) => s / total));
 }
 
+// Turn pane `id` and its next (else previous) sibling from side by side to stacked, or back.
+export function rotate(tree, id) {
+  const walk = (node) => {
+    if (!node.children) return node;
+    const i = node.children.findIndex((c) => c.pane === id);
+    if (i < 0) return split(node.dir, node.children.map(walk), node.sizes);
+    const dir = node.dir === 'row' ? 'col' : 'row';
+    if (node.children.length === 2) return split(dir, node.children, node.sizes);
+    const j = Math.min(i, node.children.length - 2), s = node.sizes[j] + node.sizes[j + 1];
+    const pair = split(dir, node.children.slice(j, j + 2), [node.sizes[j] / s, node.sizes[j + 1] / s]);
+    return {
+      ...node,
+      children: [...node.children.slice(0, j), pair, ...node.children.slice(j + 2)],
+      sizes: [...node.sizes.slice(0, j), s, ...node.sizes.slice(j + 2)],
+    };
+  };
+  return tree && walk(tree);
+}
+
 export function swap(tree, a, b) {
   if (!tree) return tree;
   if (!tree.children) return tree.pane === a ? { pane: b } : tree.pane === b ? { pane: a } : tree;
