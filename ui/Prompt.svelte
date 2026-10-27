@@ -8,6 +8,7 @@
 
   let input = $state();
   const cwd = $derived(activeTab()?.cwd || '');
+  const git = $derived(activeTab()?.git);
 
   handlers.history = ({ items }) => setHistory(items);
 
@@ -44,7 +45,7 @@
 {#if ui.comp && ui.comp.input === input}<Completions />{/if}
 {#if ui.hsearch && ui.hsearch.input === input}<HistorySearch />{/if}
 <div id="prompt">
-  <div id="cwd" title={cwd}><bdi>{tilde(cwd)} ❯</bdi></div>
+  <div id="cwd" title={cwd}><bdi>{tilde(cwd)}{#if git}<span class="git" class:dirty={git.dirty}><span class="mark">{git.dirty ? '●' : '✓'}</span>{git.branch}{#if git.ahead}<span class="ab">↑{git.ahead}</span>{/if}{#if git.behind}<span class="ab">↓{git.behind}</span>{/if}</span>{/if} ❯</bdi></div>
   <textarea
     bind:this={input} rows="1" spellcheck="false" autocomplete="off" autocapitalize="off"
     placeholder="Run a command…   (Ctrl+↑: terminals · F1: help)"

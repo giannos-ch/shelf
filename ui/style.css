@@ -197,6 +197,13 @@ kbd {
   font: 13px/1.45 var(--mono); color: var(--accent); white-space: nowrap;
   padding-bottom: 8px; max-width: 34%; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
 }
+#cwd .git {
+  margin: 0 4px 0 10px; padding: 1px 8px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--head); color: var(--muted); font-size: 11.5px;
+}
+#cwd .git .mark { margin-right: 5px; color: var(--ok); }
+#cwd .git.dirty .mark { color: var(--run); }
+#cwd .git .ab { margin-left: 6px; color: var(--text); }
 #prompt textarea {
   flex: 1; resize: none; min-height: 34px; max-height: 180px;
   padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;

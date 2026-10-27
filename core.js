@@ -189,9 +189,10 @@ class Session extends EventEmitter {
     return this.tabs.get(tab);
   }
 
-  emitState(tab) {
+  async emitState(tab) {
     const { cwd } = tab == null ? this.state : this.stateFor(tab);
-    this.emit('message', { type: 'state', tab, cwd, home: os.homedir(), backend: ptyBackend });
+    const git = await gitStatus(cwd);
+    this.emit('message', { type: 'state', tab, cwd, git, home: os.homedir(), backend: ptyBackend });
   }
 
   handle(msg) {
@@ -345,6 +346,15 @@ function applyChanges(state, startCwd, startEnv, endCwd, endEnv) {
 const statOf = (f) => fs.promises.stat(f).catch(() => null);
 const gitRoot = (dir) => new Promise((res) =>
   execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 2000 }, (err, out) => res(err ? '' : out.trim())));
+// { branch, ahead, behind, dirty } for the repo `dir` is in, or null outside one.
+const gitStatus = (dir) => new Promise((res) =>
+  execFile('git', ['-C', dir, 'status', '--porcelain=v2', '--branch'], { timeout: 2000 }, (err, out) => {
+    if (err) return res(null);
+    const lines = out.split('\n').filter(Boolean);
+    const head = lines.find((l) => l.startsWith('# branch.head '))?.slice(14);
+    const ab = lines.find((l) => l.startsWith('# branch.ab '))?.match(/\+(\d+) -(\d+)/);
+    res({ branch: head, ahead: +(ab?.[1] || 0), behind: +(ab?.[2] || 0), dirty: lines.some((l) => !l.startsWith('#')) });
+  }));
 const shq = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
 
 function which(cmd, env) {

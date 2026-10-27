@@ -9,7 +9,7 @@ export const handlers = { completions: null, history: null, stat: null };
 
 let paneSeq = 0, tabSeq = 0;
 // `selected` is the focused terminal, or the last one focused while the prompt has focus; `recent` is the focus history.
-const makeTab = (cwd = '') => ({ id: 't' + (++tabSeq), cwd, tree: null, selected: null, recent: [], maximized: null, lastCreated: null });
+const makeTab = (cwd = '') => ({ id: 't' + (++tabSeq), cwd, tree: null, selected: null, recent: [], maximized: null, lastCreated: null, git: null });
 
 export const ui = $state({
   tabs: [makeTab()],
@@ -70,7 +70,7 @@ export function init() {
 function onMessage(m) {
   const p = m.id ? paneById(m.id) : null;
   switch (m.type) {
-    case 'state': ui.home = m.home; if (m.tab && tabById(m.tab)) tabById(m.tab).cwd = m.cwd; break;
+    case 'state': ui.home = m.home; if (m.tab && tabById(m.tab)) Object.assign(tabById(m.tab), { cwd: m.cwd, git: m.git }); break;
     case 'started': if (p) p.cwd = p.runCwd = m.cwd; break;
     case 'data':
       if (p && !p.gotOutput) p.gotOutput = true;
