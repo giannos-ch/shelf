@@ -89,7 +89,7 @@ labels every link in the terminal, so you can open one by typing its label.
 
 The editor is the first of:
 
-1. `SHELF_EDITOR`, a template with `{file}`, `{line}` and `{col}`:
+1. The **Editor** setting or `SHELF_EDITOR`, a template with `{file}`, `{line}` and `{col}`:
    `export SHELF_EDITOR='code -g {file}:{line}:{col}'` or
    `export SHELF_EDITOR='nvim +{line} {file}'`
 2. `$VISUAL`, then `$EDITOR` (vim, nvim, nano, micro, emacs, hx, kak, code,
@@ -100,6 +100,18 @@ The editor is the first of:
 
 Terminal editors (vim, nano, hx, `emacs -nw`…) open in a new pane; GUI editors
 open in their own window.
+
+## Settings
+
+`Ctrl+;` `,` (or ⚙ in the tab bar) opens the settings; changes apply at once
+to every window. They're saved in `~/.config/shelf/settings.json`
+(`$XDG_CONFIG_HOME` is honoured), which you can also edit by hand; edits
+apply when a window loads.
+
+- **Editor**: the command that opens Ctrl+clicked paths (see above).
+- **Theme**: dark, light, or follow the system.
+- **Font size** and **font** for terminals and the prompt.
+- **Cursor**: block, bar or underline.
 
 ## How it works
 

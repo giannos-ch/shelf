@@ -166,6 +166,41 @@ function appendHistory(cmd) {
   try { fs.appendFileSync(zsh.histfile, Buffer.from(bytes), { mode: 0o600 }); } catch {}
 }
 
+// ---------------------------------------------------------------- settings
+// One settings file for every window and browser client. Unknown or invalid values fall back to the default.
+const SETTINGS_FILE = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'shelf', 'settings.json');
+const SETTINGS = {   // name: [default, valid?]
+  editor: ['', (v) => typeof v === 'string'],
+  theme: ['dark', (v) => ['dark', 'light', 'system'].includes(v)],
+  fontSize: [13, (v) => Number.isInteger(v) && v >= 8 && v <= 32],
+  fontFamily: ['', (v) => typeof v === 'string'],
+  cursorStyle: ['block', (v) => ['block', 'bar', 'underline'].includes(v)],
+};
+const settings = {};
+const settingsBus = new EventEmitter();
+settingsBus.setMaxListeners(0);
+
+function mergeSettings(src) {
+  for (const [k, [, valid]] of Object.entries(SETTINGS)) if (src && valid(src[k])) settings[k] = src[k];
+}
+// (Re)reads the file, so hand edits apply when a window loads; every window gets the result.
+function loadSettings() {
+  for (const [k, [def]] of Object.entries(SETTINGS)) settings[k] = def;
+  mergeSettings(readJson(SETTINGS_FILE));
+  settingsBus.emit('change');
+}
+loadSettings();
+
+function saveSettings(src) {
+  mergeSettings(src);
+  try {
+    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE + '.tmp', JSON.stringify(settings, null, 2) + '\n');
+    fs.renameSync(SETTINGS_FILE + '.tmp', SETTINGS_FILE);
+  } catch (err) { console.error('[shelf] could not save settings:', err.message); }
+  settingsBus.emit('change');
+}
+
 // ------------------------------------------------------------------ session
 // A session holds a base cwd + env (`state`, which callers may share between
 // sessions), one cwd + env per UI tab cloned from it, and the commands it is
@@ -176,6 +211,8 @@ class Session extends EventEmitter {
     this.state = state;
     this.tabs = new Map();
     this.runs = new Map();
+    this.emitSettings = () => this.emit('message', { type: 'settings', settings, file: SETTINGS_FILE });
+    settingsBus.on('change', this.emitSettings);
   }
 
   get runningCount() { return this.runs.size; }
@@ -199,7 +236,7 @@ class Session extends EventEmitter {
     if (!msg || typeof msg !== 'object') return;
     const run = this.runs.get(msg.id);
     switch (msg.type) {
-      case 'hello': this.killAll(); this.tabs.clear(); loadZsh(); this.emitState(); break;   // UI (re)loaded: old panes are gone
+      case 'hello': this.killAll(); this.tabs.clear(); loadZsh(); loadSettings(); this.emitState(); break;   // UI (re)loaded: old panes are gone
       case 'tab-open': this.stateFor(msg.tab, msg.from); this.emitState(msg.tab); break;
       case 'history': this.emit('message', { type: 'history', items: readHistory() }); break;
       case 'history-add': appendHistory(String(msg.cmd || '')); break;
@@ -208,6 +245,7 @@ class Session extends EventEmitter {
       case 'run': this.run(msg); break;
       case 'cd': this.cd(msg); break;
       case 'stat': this.stat(msg); break;
+      case 'settings-set': saveSettings(msg.settings); break;
       case 'open': this.open(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
       case 'resize': run?.pty.resize(Math.max(2, msg.cols | 0), Math.max(1, msg.rows | 0)); break;
@@ -308,7 +346,7 @@ class Session extends EventEmitter {
     this.runs.clear();
   }
 
-  dispose() { this.killAll(); this.removeAllListeners(); }
+  dispose() { this.killAll(); this.removeAllListeners(); settingsBus.off('change', this.emitSettings); }
 }
 
 function wrapperEnv(id, startEnv, startCwd, cmd) {
@@ -385,12 +423,12 @@ function isBinary(file) {
   } catch { return false; }
 }
 
-// The editor command for `file` as an argv: SHELF_EDITOR (a template with {file}, {line}, {col}), else
+// The editor command for `file` as an argv: the editor setting or SHELF_EDITOR (a template with {file}, {line}, {col}), else
 // $VISUAL / $EDITOR / code with their known line syntax, else the system opener (always, for binary files).
 // The template is split into words before the placeholders are filled, so a path is always one whole argument.
 // ponytail: splits on whitespace only, so an editor path with spaces needs a wrapper script.
 function editorArgv(env, file, line, col) {
-  let tpl = env.SHELF_EDITOR;
+  let tpl = settings.editor.trim() || env.SHELF_EDITOR;
   if (!tpl) {
     const ed = env.VISUAL || env.EDITOR || (which('code', env) ? 'code' : '');
     tpl = ed ? `${ed} ${EDITOR_ARGS[path.basename(ed.split(/\s+/)[0])] || '{file}'}` : `${OPENER} {file}`;
@@ -441,4 +479,4 @@ const MIME = {
 };
 const mimeOf = (file) => MIME[path.extname(file)] || 'application/octet-stream';
 
-module.exports = { Session, ptyBackend, cleanEnv, resolveAsset, mimeOf };
+module.exports = { Session, ptyBackend, cleanEnv, resolveAsset, mimeOf, loadSettings };

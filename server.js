@@ -8,7 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { WebSocketServer } = require('ws');
-const { Session, ptyBackend, cleanEnv, resolveAsset, mimeOf } = require('./core');
+const { Session, ptyBackend, cleanEnv, resolveAsset, mimeOf, loadSettings } = require('./core');
 
 const PORT = Number(process.env.PORT || 7777);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -42,6 +42,7 @@ const wss = new WebSocketServer({
 wss.on('connection', (ws) => {
   const session = new Session(state);
   session.on('message', (msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); });
+  loadSettings();   // a page load: pick up hand edits to the settings file
   session.emitState();
   ws.on('message', (raw) => { try { session.handle(JSON.parse(raw)); } catch {} });
   ws.on('close', () => session.dispose());

@@ -8,21 +8,12 @@
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
   import { suggest, hideSuggest, navKey, record, recall } from './history.js';
-  import { ui, terms, activeTab, select, focusPane, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
   const focused = $derived(selected && ui.mode === 'pane');
   $effect(() => { const e = terms.get(pane.id); if (e) e.input = inputEl; });
-
-  const THEME = {
-    background: '#12151b', foreground: '#d7dce5', cursor: '#e3b341', cursorAccent: '#12151b',
-    selectionBackground: '#2f3a52',
-    black: '#1b1f27', red: '#f85149', green: '#3fb950', yellow: '#e3b341', blue: '#5b8def',
-    magenta: '#bc8cff', cyan: '#39c5cf', white: '#d7dce5',
-    brightBlack: '#5c6370', brightRed: '#ff7b72', brightGreen: '#56d364', brightYellow: '#f2cc60',
-    brightBlue: '#79a6ff', brightMagenta: '#d2a8ff', brightCyan: '#56d4dd', brightWhite: '#ffffff',
-  };
 
   const meta = $derived.by(() => {
     const parts = [tilde(pane.cwd)];
@@ -38,9 +29,8 @@
 
   function xterm(node) {
     const term = new Terminal({
-      fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--mono'),
-      fontSize: 13, lineHeight: 1.15, cursorBlink: true, scrollback: 10000,
-      theme: THEME, macOptionIsMeta: true, allowTransparency: false,
+      ...termOptions(), lineHeight: 1.15, cursorBlink: true, scrollback: 10000,
+      macOptionIsMeta: true, allowTransparency: false,
       linkHandler: { activate: (e, uri) => openUrl(uri) },
     });
     const fit = new FitAddon();
@@ -70,15 +60,7 @@
     let raf = 0;
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        if (!node.clientWidth || !node.clientHeight) return;
-        try { fit.fit(); } catch { return; }
-        const { cols, rows } = term;
-        if (pane.status === 'running' && (cols !== entry.lastSize.cols || rows !== entry.lastSize.rows)) {
-          send({ type: 'resize', id: pane.id, cols, rows });
-        }
-        entry.lastSize = { cols, rows };
-      });
+      raf = requestAnimationFrame(() => refit(pane.id));
     });
     ro.observe(node);
     return { destroy: () => ro.disconnect() };

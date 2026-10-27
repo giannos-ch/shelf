@@ -1,6 +1,7 @@
 import { tick } from 'svelte';
 import { connect, send } from './conn.js';
 import * as L from './layout.js';
+import { THEMES } from './themes.js';
 
 // xterm instances live outside $state so they are never proxied.
 export const terms = new Map();   // pane id -> { term, fit, lastSize }
@@ -28,6 +29,9 @@ export const ui = $state({
   comp: null,
   hsearch: null,           // { input, q } while a history search is open
   hints: null,             // { pane, typed, items } while Ctrl+; o labels links
+  settings: false,         // the settings panel is open
+  prefs: { editor: '', theme: 'dark', fontSize: 13, fontFamily: '', cursorStyle: 'block' },   // core.js's SETTINGS, saved in prefsFile
+  prefsFile: '',
   now: Date.now(),
 });
 setInterval(() => { if (ui.panes.some((p) => p.status === 'running')) ui.now = Date.now(); }, 1000);
@@ -56,6 +60,40 @@ export function layoutOf(tab) {
 }
 
 // ------------------------------------------------------------ messages
+// --------------------------------------------------------------- settings
+const darkOS = matchMedia('(prefers-color-scheme: dark)');
+const theme = () => THEMES[ui.prefs.theme === 'system' ? (darkOS.matches ? 'dark' : 'light') : ui.prefs.theme] || THEMES.dark;
+
+// Options for a new or existing xterm from the settings (--mono already includes the font setting).
+export const termOptions = () => ({
+  theme: theme().term, fontSize: ui.prefs.fontSize, cursorStyle: ui.prefs.cursorStyle,
+  fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--mono'),
+});
+
+function applyPrefs() {
+  const root = document.documentElement.style;
+  for (const [k, v] of Object.entries(theme().css)) root.setProperty('--' + k, v);
+  if (ui.prefs.fontFamily.trim()) root.setProperty('--font', ui.prefs.fontFamily); else root.removeProperty('--font');
+  const opts = termOptions();
+  for (const [id, t] of terms) { Object.assign(t.term.options, opts); refit(id); }
+}
+applyPrefs();
+darkOS.addEventListener('change', () => ui.prefs.theme === 'system' && applyPrefs());
+
+export const openSettings = () => { ui.layer = false; ui.settings = true; };
+export const closeSettings = () => { ui.settings = false; focusPrompt(); };
+export const savePrefs = (patch) => send({ type: 'settings-set', settings: { ...$state.snapshot(ui.prefs), ...patch } });
+
+// Fits a terminal to its box and tells a running program its new size.
+export function refit(id) {
+  const t = terms.get(id), p = paneById(id);
+  if (!t?.term.element?.clientWidth || !t.term.element.clientHeight) return;
+  try { t.fit.fit(); } catch { return; }
+  const { cols, rows } = t.term;
+  if (p?.status === 'running' && (cols !== t.lastSize.cols || rows !== t.lastSize.rows)) send({ type: 'resize', id, cols, rows });
+  t.lastSize = { cols, rows };
+}
+
 export function init() {
   connect({
     onMessage,
@@ -80,6 +118,7 @@ function onMessage(m) {
     case 'completions': handlers.completions?.(m); break;
     case 'history': handlers.history?.(m); break;
     case 'stat': handlers.stat?.(m); break;
+    case 'settings': ui.prefs = m.settings; ui.prefsFile = m.file; applyPrefs(); break;
     case 'open-pane': if (m.tab === ui.active) runCommand(m.cmd, true, true); break;
     case 'cd': if (!m.ok) runCommand(m.cmd, false, true); break;
   }

@@ -2,11 +2,12 @@
   import { onMount } from 'svelte';
   import Pane from './Pane.svelte';
   import Prompt from './Prompt.svelte';
+  import Settings from './Settings.svelte';
   import { SHORTCUTS, onKeydown } from './keys.js';
   import { platform, send } from './conn.js';
   import {
     ui, els, init, activeTab, tabById, closedPanes, layoutOf, tabTitle, tilde, focusPrompt,
-    newTab, closeTab, gotoTab, reopen, destroy, startResize, openSidebar, closeSidebar,
+    newTab, closeTab, gotoTab, reopen, destroy, startResize, openSidebar, closeSidebar, openSettings,
   } from './store.svelte.js';
 
   let desk;
@@ -43,6 +44,7 @@
   {/each}
   <button class="add" title="New tab (Ctrl+; t)" onclick={() => newTab()}>+</button>
   <span class="spacer"></span>
+  <button title="Settings (Ctrl+; ,)" onclick={openSettings}>⚙</button>
   <button class="help-btn" title="Shortcuts (F1)" onclick={() => (ui.help = true)}>?</button>
   {#if platform && platform !== 'darwin'}<button title="Menu" onclick={() => send({ type: 'menu' })}>⋯</button>{/if}
 </nav>
@@ -112,6 +114,8 @@
   <Prompt />
   {#if !ui.connected}<div id="conn">Disconnected — retrying…</div>{/if}
 </footer>
+
+{#if ui.settings}<Settings />{/if}
 
 {#if ui.help}
   <div id="help" role="presentation" onclick={() => (ui.help = false)}>

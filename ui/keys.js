@@ -80,6 +80,7 @@ export const SHORTCUTS = [
   { ctx: 'layer', label: 'a', keys: ['KeyA'], hint: 'select all', desc: 'Select all output (then Ctrl+C copies)', run: S.selectAll },
   { ctx: 'layer', label: 'l / L', keys: ['KeyL', 'Shift+KeyL'], hint: 'close/remove finished', desc: 'Close finished, unpinned terminals in this tab / remove them for good', run: (k) => (k === 'KeyL' ? S.shelveFinished() : S.clearFinished()) },
   ...(platform ? [{ ctx: 'layer', label: 'n', keys: ['KeyN'], hint: 'new window', desc: 'New window', run: S.newWindow }] : []),
+  { ctx: 'layer', label: ',', keys: ['Comma'], hint: 'settings', desc: 'Settings: editor, theme, font, cursor', run: S.openSettings },
   { ctx: 'layer', label: '?', keys: ['Shift+Slash'], hint: 'help', desc: 'This help', run: () => (ui.help = true) },
   { ctx: 'layer', label: 'Esc', keys: ['Escape'], hint: 'leave', desc: 'Leave the layer (any other key does too, and is swallowed)', run: () => {} },
 
@@ -100,6 +101,10 @@ export function onKeydown(e) {
   if (ui.help) {
     consume(e);
     if (['Escape', 'F1', 'Shift+Slash'].includes(k)) ui.help = false;
+    return;
+  }
+  if (ui.settings) {   // the panel's inputs get every key; Esc closes it
+    if (k === 'Escape') { consume(e); S.closeSettings(); }
     return;
   }
   if (ui.hints) { consume(e); hintKey(e); return; }
