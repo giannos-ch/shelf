@@ -1,95 +1,111 @@
 import * as S from './store.svelte.js';
-import { closeSearch } from './history.js';
+import { closeSearch, replaceText } from './history.js';
+import { platform } from './conn.js';
 
 const { ui } = S;
-// Esc closes completions, then history suggestions, before acting.
-const esc = (act) => () => (ui.comp ? (ui.comp = null) : ui.hsearch ? closeSearch() : act());
 const DIR = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
 const SIDE = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'top', ArrowDown: 'bottom' };
 const arrows = (mod) => Object.keys(DIR).map((k) => mod + k);
 const arrowOf = (k) => k.split('+').pop();
-const digits = (mod) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => mod + n);
+const digits = (mod) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => mod + 'Digit' + n);
+const digitOf = (k) => +k.slice(-1);
+const running = () => S.selected()?.status === 'running';
+const closeLists = () => (ui.comp ? (ui.comp = null) : closeSearch());
+// A text input's own selection wins over the terminal's.
+const inputSelection = () => document.activeElement?.selectionStart < document.activeElement?.selectionEnd;
 
-// Shortcuts without `run` are handled by the prompt itself and listed for help only.
-export const SHORTCUTS = [
-  { mode: 'any', label: 'Ctrl+`', keys: ['Ctrl+`'], desc: 'Focus the prompt', run: () => S.setMode('prompt') },
-
-  { mode: 'prompt', label: 'Enter', desc: 'Run and type into its terminal (with history matches shown: pick the selected one)' },
-  { mode: 'prompt', label: 'Ctrl+Enter', desc: 'Run and stay in the prompt' },
-  { mode: 'prompt', label: 'Shift+Enter', desc: 'New line' },
-  { mode: 'prompt', label: 'Tab', desc: 'Pick the selected history match (→ at line end too), else complete' },
-  { mode: 'prompt', label: '↑ ↓ (typing)', desc: 'Select among history matches shown while typing' },
-  { mode: 'prompt', label: 'Shift+Delete', desc: 'Remove the selected history match from history (terminal prompts too)' },
-  { mode: 'prompt', label: '↑ ↓', desc: 'History' },
-  { mode: 'prompt', label: 'Esc', keys: ['Escape'], desc: 'View mode (closes completions or suggestions first)', run: esc(() => S.setMode('view')) },
-  { mode: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+l'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
-
-  { mode: 'insert', label: 'Esc', keys: ['Escape'], desc: 'Back to view mode (closes completions or suggestions first)', run: esc(() => S.setMode('view')) },
-  { mode: 'insert', label: 'Tab', desc: 'On a finished terminal: pick the selected history match, else complete' },
-  { mode: 'insert', label: 'Enter', desc: 'On a finished terminal: run its prompt’s command in that terminal (with history matches shown: pick one)' },
-  { mode: 'insert', label: '↑ ↓', desc: 'On a finished terminal: history (shared with the main prompt)' },
-  { mode: 'insert', label: 'Ctrl+D', desc: 'On a finished terminal with an empty prompt: close it' },
-  { mode: 'insert', label: 'Shift+Esc', keys: ['Shift+Escape'], desc: 'Send Esc to the program', run: () => S.sendEsc() },
-
-  { mode: 'view', label: '←↑→↓', keys: arrows(''), desc: 'Select the terminal in that direction', run: (k) => S.selectDir(DIR[arrowOf(k)]) },
-  { mode: 'view', label: 'Ctrl+Shift+←↑→↓', keys: arrows('Ctrl+Shift+'), desc: 'Swap with the terminal in that direction', run: (k) => S.swapDir(DIR[arrowOf(k)]) },
-  { mode: 'view', label: 'Shift+←↑→↓', keys: arrows('Shift+'), desc: 'Move a border of the terminal', run: (k) => S.nudge(SIDE[arrowOf(k)]) },
-  { mode: 'view', label: '=', keys: ['='], desc: 'Equalize sizes', run: S.equalize },
-  { mode: 'view', label: 'Tab / Shift+Tab', keys: ['Tab', 'Shift+Tab'], desc: 'Next / previous terminal', run: (k) => S.cycle(k === 'Tab' ? 1 : -1) },
-  { mode: 'view', label: 'i / Enter', keys: ['i', 'Enter'], desc: 'Insert mode: keys go to the terminal', run: () => S.setMode('insert') },
-  { mode: 'view', label: ':', keys: [':'], desc: 'Focus the prompt', run: () => S.setMode('prompt') },
-  { mode: 'view', label: 'Esc', keys: ['Escape'], desc: 'Close (keeps running, listed on the left)', run: () => S.closePane() },
-  { mode: 'view', label: 'u', keys: ['u'], desc: 'Reopen the last closed terminal', run: () => S.reopen() },
-  { mode: 'view', label: 'X', keys: ['X'], desc: 'Kill and remove for good', run: () => S.destroy() },
-  { mode: 'view', label: 'm', keys: ['m'], desc: 'Maximize / restore', run: S.toggleMax },
-  { mode: 'view', label: 'k', keys: ['k'], desc: 'Kill the command', run: () => S.kill() },
-  { mode: 'view', label: 'c', keys: ['c'], desc: 'Send Ctrl+C (interrupt)', run: () => S.interrupt() },
-  { mode: 'view', label: 'r', keys: ['r'], desc: 'Run again', run: () => S.rerun() },
-  { mode: 'view', label: 'Ctrl+C', keys: ['Ctrl+c'], desc: 'Copy the selected text', run: S.copySelection },
-  { mode: 'view', label: 'a', keys: ['a'], desc: 'Select all output', run: S.selectAll },
-  { mode: 'view', label: 'g / G', keys: ['g', 'G'], desc: 'Scroll to top / bottom', run: (k) => S.scroll(k === 'g' ? 'top' : 'bottom') },
-  { mode: 'view', label: 'PgUp / PgDn', keys: ['PageUp', 'PageDown'], desc: 'Scroll a page', run: (k) => S.scroll(k === 'PageUp' ? -1 : 1) },
-  { mode: 'view', label: 'l', keys: ['l'], desc: 'Close finished, unpinned terminals in this tab', run: S.shelveFinished },
-  { mode: 'view', label: 'Ctrl+L', keys: ['Ctrl+l'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
-  { mode: 'view', label: 'p', keys: ['p'], desc: 'Pin / unpin (pinned terminals survive l and Ctrl+L)', run: () => S.togglePin() },
-  { mode: 'view', label: 't', keys: ['t'], desc: 'New tab (starts in this tab’s directory)', run: () => S.newTab() },
-  { mode: 'view', label: 'w', keys: ['w'], desc: 'Close tab (its terminals go to the closed list)', run: () => S.closeTab() },
-  { mode: 'view', label: '1 … 9', keys: digits(''), desc: 'Go to tab', run: (k) => S.gotoTab(+k - 1) },
-  { mode: 'view', label: '[ / ]', keys: ['[', ']'], desc: 'Previous / next tab', run: (k) => S.shiftTab(k === '[' ? -1 : 1) },
-  { mode: 'view', label: 'Shift+1 … 9', keys: digits('Shift+'), desc: 'Move terminal to tab', run: (k) => S.moveToIndex(+arrowOf(k) - 1) },
-  { mode: 'view', label: '{ / }', keys: ['{', '}'], desc: 'Move terminal to previous / next tab (new tab past the end)', run: (k) => S.moveBy(k === '{' ? -1 : 1) },
-  { mode: 'view', label: 'b', keys: ['b'], desc: 'Open the closed-terminals list and select its first entry', run: S.openSidebar },
-  { mode: 'view', label: '?', keys: ['?'], desc: 'This help', run: () => (ui.help = true) },
-
-  { mode: 'side', label: '↑ ↓', keys: ['ArrowUp', 'ArrowDown'], desc: 'Select a closed terminal', run: (k) => S.sideMove(k === 'ArrowUp' ? -1 : 1) },
-  { mode: 'side', label: 'Enter', keys: ['Enter'], desc: 'Reopen it', run: () => S.sideAct(S.reopen) },
-  { mode: 'side', label: 'Esc / X', keys: ['Escape', 'X'], desc: 'Kill and remove it for good', run: () => S.sideAct(S.destroy) },
-  { mode: 'side', label: '→', keys: ['ArrowRight'], desc: 'Back to the terminals (list stays open)', run: () => S.setMode('view') },
-  { mode: 'side', label: 'b', keys: ['b'], desc: 'Hide the list', run: S.closeSidebar },
-  { mode: 'side', label: '…', desc: 'Other view-mode shortcuts still work' },
-];
-
-export function keyName(e) {
-  if (e.ctrlKey && e.code === 'Backquote') return 'Ctrl+`';
-  if (e.shiftKey && !e.ctrlKey && !e.altKey && /^Digit[1-9]$/.test(e.code)) return 'Shift+' + e.code.slice(5);
-  const printable = e.key.length === 1;
-  const mods = (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey && !printable ? 'Shift+' : '');
-  return mods + (printable && e.ctrlKey ? e.key.toLowerCase() : e.key);
+// Esc in a finished terminal's prompt: close completions or suggestions, then clear the text, then back to the main prompt.
+function escPanePrompt() {
+  const input = S.terms.get(S.selected()?.id)?.input;
+  if (ui.comp || ui.hsearch) closeLists();
+  else if (input?.value) replaceText(input, 0, input.value.length, '');
+  else S.focusPrompt();
 }
 
+// Keys are physical (e.code), so shortcuts work whatever the keyboard layout. Contexts: `any`, `prompt` (main
+// prompt focused), `pane` (a terminal focused), `layer` (the key after Ctrl+;), `side` (the closed list).
+// `when` narrows an entry further. Entries without `run` are handled where they occur and listed for help only.
+// Only take Ctrl keys programs can't receive or barely use: everything else must reach the program.
+export const SHORTCUTS = [
+  { ctx: 'any', label: 'Ctrl+`', keys: ['Ctrl+Backquote'], desc: 'Switch between the prompt and the last terminal', run: S.toggleFocus },
+  { ctx: 'any', label: 'Ctrl+Tab', keys: ['Ctrl+Tab'], desc: 'Focus the previously focused terminal', run: S.focusPrevious },
+  { ctx: 'any', label: 'Ctrl+M', keys: ['Ctrl+KeyM'], desc: 'Maximize / restore', run: S.toggleMax },
+  { ctx: 'any', label: 'Ctrl+Q', keys: ['Ctrl+KeyQ'], desc: 'Close (keeps running, goes to the closed list)', run: () => S.closePane() },
+  { ctx: 'any', label: 'Ctrl+.', keys: ['Ctrl+Period'], desc: 'Run again', run: () => S.rerun() },
+  { ctx: 'any', label: 'Ctrl+C', keys: ['Ctrl+KeyC'], when: () => S.hasSelection() && !inputSelection(), desc: 'With output selected: copy it (otherwise ^C goes to the program)', run: S.copySelection },
+  { ctx: 'any', label: 'Shift+PgUp / PgDn', keys: ['Shift+PageUp', 'Shift+PageDown'], desc: 'Scroll the output a page', run: (k) => S.scroll(k === 'Shift+PageUp' ? -1 : 1) },
+  { ctx: 'any', label: 'Ctrl+PgUp / PgDn', keys: ['Ctrl+PageUp', 'Ctrl+PageDown'], desc: 'Previous / next tab', run: (k) => S.shiftTab(k === 'Ctrl+PageUp' ? -1 : 1) },
+  { ctx: 'any', label: 'Ctrl+1 … 9', keys: digits('Ctrl+'), desc: 'Go to tab', run: (k) => S.gotoTab(digitOf(k) - 1) },
+  { ctx: 'any', label: 'Ctrl+;', keys: ['Ctrl+Semicolon'], desc: 'Command layer (see below)', run: () => (ui.layer = true) },
+  { ctx: 'any', label: 'F1', keys: ['F1'], desc: 'This help', run: () => (ui.help = true) },
+  { ctx: 'any', label: '…', desc: 'Terminal actions apply to the focused terminal, or to the last one while the prompt has focus' },
+
+  { ctx: 'prompt', label: 'Enter', desc: 'Run and type into its terminal (with history matches shown: pick the selected one)' },
+  { ctx: 'prompt', label: 'Ctrl+Enter', desc: 'Run and stay in the prompt' },
+  { ctx: 'prompt', label: 'Shift+Enter', desc: 'New line' },
+  { ctx: 'prompt', label: 'Tab', desc: 'Pick the selected history match (→ at line end too), else complete' },
+  { ctx: 'prompt', label: '↑ ↓ (typing)', desc: 'Select among history matches shown while typing' },
+  { ctx: 'prompt', label: 'Shift+Delete', desc: 'Remove the selected history match from history (terminal prompts too)' },
+  { ctx: 'prompt', label: '↑ ↓', desc: 'History' },
+  { ctx: 'prompt', label: 'Ctrl+↑', keys: ['Ctrl+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
+  { ctx: 'prompt', label: 'Esc', keys: ['Escape'], when: () => ui.comp || ui.hsearch, desc: 'Close completions or suggestions', run: closeLists },
+  { ctx: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+KeyL'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
+
+  { ctx: 'pane', label: 'Ctrl+←↑→↓', keys: arrows('Ctrl+'), desc: 'Focus the terminal in that direction (↓ from the bottom one: the prompt)', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
+  { ctx: 'pane', label: 'Ctrl+V', keys: ['Ctrl+KeyV'], when: running, desc: 'Paste text (with no text on the clipboard, ^V goes to the program)', run: () => S.paste() },
+  { ctx: 'pane', label: 'Ctrl+Z', keys: ['Ctrl+KeyZ'], when: running, desc: 'Ignored: commands run without job control, so a suspended one could never resume', run: () => {} },
+  { ctx: 'pane', label: 'Shift+Home / End', keys: ['Shift+Home', 'Shift+End'], when: running, desc: 'Scroll to the top / bottom', run: (k) => S.scroll(k === 'Shift+Home' ? 'top' : 'bottom') },
+  { ctx: 'pane', label: '…', desc: 'Every other key, Esc included, goes to the running program' },
+  { ctx: 'pane', label: 'Esc', keys: ['Escape'], when: () => !running(), desc: 'Finished terminal: close completions or suggestions, then clear its prompt, then back to the main prompt', run: escPanePrompt },
+  { ctx: 'pane', label: 'Enter', desc: 'Finished terminal: run its prompt’s command in that terminal (with history matches shown: pick one)' },
+  { ctx: 'pane', label: 'Tab', desc: 'Finished terminal: pick the selected history match, else complete' },
+  { ctx: 'pane', label: '↑ ↓', desc: 'Finished terminal: history (shared with the main prompt)' },
+  { ctx: 'pane', label: 'Ctrl+D', desc: 'Finished terminal with an empty prompt: close it' },
+
+  { ctx: 'layer', label: '←↑→↓', keys: arrows(''), hint: 'swap', stay: true, desc: 'Swap with the terminal in that direction (repeatable)', run: (k) => S.swapDir(DIR[k]) },
+  { ctx: 'layer', label: 'Shift+←↑→↓', keys: arrows('Shift+'), hint: 'resize', stay: true, desc: 'Move a border of the terminal (repeatable)', run: (k) => S.nudge(SIDE[arrowOf(k)]) },
+  { ctx: 'layer', label: '=', keys: ['Equal'], hint: 'equalize', stay: true, desc: 'Equalize sizes', run: S.equalize },
+  { ctx: 'layer', label: 't / w', keys: ['KeyT', 'KeyW'], hint: 'tab new/close', desc: 'New tab (starts in this tab’s directory) / close tab (its terminals go to the closed list)', run: (k) => (k === 'KeyT' ? S.newTab() : S.closeTab()) },
+  { ctx: 'layer', label: '1 … 9', keys: digits(''), hint: 'move to tab', desc: 'Move the terminal to tab N', run: (k) => S.moveToIndex(digitOf(k) - 1) },
+  { ctx: 'layer', label: '[ / ]', keys: ['BracketLeft', 'BracketRight'], hint: 'move to prev/next tab', desc: 'Move the terminal to the previous / next tab (new tab past the end)', run: (k) => S.moveBy(k === 'BracketLeft' ? -1 : 1) },
+  { ctx: 'layer', label: 'k', keys: ['KeyK'], hint: 'kill', desc: 'Kill the command', run: () => S.kill() },
+  { ctx: 'layer', label: 'u', keys: ['KeyU'], hint: 'reopen', desc: 'Reopen the last closed terminal', run: () => S.reopen() },
+  { ctx: 'layer', label: 'b', keys: ['KeyB'], hint: 'closed list', desc: 'Open the closed list and select its first entry', run: S.openSidebar },
+  { ctx: 'layer', label: 'X', keys: ['Shift+KeyX'], hint: 'kill & remove', desc: 'Kill and remove for good', run: () => S.destroy() },
+  { ctx: 'layer', label: 'p', keys: ['KeyP'], hint: 'pin', desc: 'Pin / unpin (pinned terminals survive l, L and Ctrl+L)', run: () => S.togglePin() },
+  { ctx: 'layer', label: 'a', keys: ['KeyA'], hint: 'select all', desc: 'Select all output (then Ctrl+C copies)', run: S.selectAll },
+  { ctx: 'layer', label: 'l / L', keys: ['KeyL', 'Shift+KeyL'], hint: 'close/remove finished', desc: 'Close finished, unpinned terminals in this tab / remove them for good', run: (k) => (k === 'KeyL' ? S.shelveFinished() : S.clearFinished()) },
+  ...(platform ? [{ ctx: 'layer', label: 'n', keys: ['KeyN'], hint: 'new window', desc: 'New window', run: S.newWindow }] : []),
+  { ctx: 'layer', label: '?', keys: ['Shift+Slash'], hint: 'help', desc: 'This help', run: () => (ui.help = true) },
+  { ctx: 'layer', label: 'Esc', keys: ['Escape'], hint: 'leave', desc: 'Leave the layer (any other key does too, and is swallowed)', run: () => {} },
+
+  { ctx: 'side', label: '↑ ↓', keys: ['ArrowUp', 'ArrowDown'], desc: 'Select a closed terminal', run: (k) => S.sideMove(k === 'ArrowUp' ? -1 : 1) },
+  { ctx: 'side', label: 'Enter', keys: ['Enter'], desc: 'Reopen it', run: () => S.sideAct(S.reopen) },
+  { ctx: 'side', label: 'X', keys: ['Shift+KeyX'], desc: 'Kill and remove it for good', run: () => S.sideAct(S.destroy) },
+  { ctx: 'side', label: 'Esc', keys: ['Escape'], desc: 'Back to where you were (the list stays open)', run: S.leaveSidebar },
+];
+
+export const keyName = (e) => (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + (e.metaKey ? 'Meta+' : '') + e.code;
+
 const consume = (e) => { e.preventDefault(); e.stopPropagation(); };
+const find = (ctx, k) => SHORTCUTS.find((s) => s.run && s.ctx === ctx && s.keys.includes(k) && (!s.when || s.when()));
 
 export function onKeydown(e) {
-  if (e.isComposing || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+  if (e.isComposing || ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta'].includes(e.key)) return;
   const k = keyName(e);
   if (ui.help) {
     consume(e);
-    if (['Escape', '?', 'q'].includes(k)) ui.help = false;
+    if (['Escape', 'F1', 'Shift+Slash'].includes(k)) ui.help = false;
     return;
   }
-  const order = ui.mode === 'side' ? ['side', 'view', 'any'] : [ui.mode, 'any'];
-  const sc = order.map((m) => SHORTCUTS.find((s) => s.run && s.mode === m && s.keys.includes(k))).find(Boolean);
-  if (sc) { consume(e); sc.run(k); return; }
-  // View mode: nothing reaches a program. Ctrl+Shift stays free for app shortcuts.
-  if ((ui.mode === 'view' || ui.mode === 'side') && !(e.ctrlKey && e.shiftKey)) consume(e);
+  if (ui.layer) {
+    consume(e);
+    const sc = find('layer', k);   // unknown keys just close the layer
+    ui.layer = !!sc?.stay;
+    sc?.run(k);
+    return;
+  }
+  const sc = find(ui.mode, k) || find('any', k);
+  if (sc) { consume(e); sc.run(k); }
+  else if (ui.mode === 'side') consume(e);   // the closed list has no program to reach
 }

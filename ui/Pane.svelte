@@ -7,10 +7,11 @@
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
   import { suggest, hideSuggest, navKey, record, recall } from './history.js';
-  import { ui, terms, activeTab, select, setMode, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, terms, activeTab, select, focusPane, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
+  const focused = $derived(selected && ui.mode === 'pane');
   $effect(() => { const e = terms.get(pane.id); if (e) e.input = inputEl; });
 
   const THEME = {
@@ -47,9 +48,14 @@
     term.open(node);
     const entry = { term, fit, lastSize: { cols: 0, rows: 0 } };
     terms.set(pane.id, entry);
-    // Keys and mouse reports reach the program only in insert mode.
+    // Keys and mouse reports reach the program only while this terminal has focus.
     term.onData((data) => {
-      if (ui.mode === 'insert' && activeTab()?.selected === pane.id && pane.status === 'running') send({ type: 'input', id: pane.id, data });
+      if (ui.mode === 'pane' && activeTab()?.selected === pane.id && pane.status === 'running') send({ type: 'input', id: pane.id, data });
+    });
+    term.textarea?.addEventListener('focus', () => {
+      select(pane.id);
+      ui.mode = 'pane';
+      if (pane.status !== 'running') entry.input?.focus();   // a finished terminal types into its own prompt
     });
     let raf = 0;
     const ro = new ResizeObserver(() => {
@@ -68,21 +74,16 @@
     return { destroy: () => ro.disconnect() };
   }
 
-  function onPointerDown() {
-    if (selected && ui.mode === 'insert') return;
-    select(pane.id);
-    if (ui.mode !== 'view' && ui.mode !== 'insert') setMode('view');
-  }
 </script>
 
 <section
   class="pane"
-  class:selected
-  class:insert={selected && ui.mode === 'insert'}
+  class:focused
+  class:last={selected && !focused}
   class:dragging={ui.drag?.id === pane.id}
   hidden={!rect}
   style:left="{rect?.x}px" style:top="{rect?.y}px" style:width="{rect?.w}px" style:height="{rect?.h}px"
-  onpointerdowncapture={onPointerDown}
+  onpointerdowncapture={() => !focused && focusPane(pane.id)}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <header class="pane-head" onpointerdown={(e) => !e.target.closest('button') && startDrag(e, pane.id)} ondblclick={(e) => !e.target.closest('button') && toggleMax()}>
@@ -90,14 +91,13 @@
     <span class="cmd" title={pane.cmd}>{pane.cmd.replace(/\n/g, ' ⏎ ')}</span>
     <span class="meta">{meta}{#if badge}{' · '}<span class="code">{badge}</span>{/if}</span>
     <span class="btns">
-      <button title="Run again (r)" onclick={() => rerun(pane)}>↻</button>
-      <button class="pin" class:on={pane.pinned} title="{pane.pinned ? 'Unpin' : 'Pin'} (p)" onclick={() => togglePin(pane)}>📌</button>
-      <button title="{maximized ? 'Restore' : 'Maximize'} (m)" onclick={toggleMax}>{maximized ? '❐' : '▢'}</button>
-      <button class="close" title="Close (Esc in view mode)" onclick={() => closePane(pane)}>✕</button>
+      <button title="Run again (Ctrl+.)" onclick={() => rerun(pane)}>↻</button>
+      <button class="pin" class:on={pane.pinned} title="{pane.pinned ? 'Unpin' : 'Pin'} (Ctrl+; p)" onclick={() => togglePin(pane)}>📌</button>
+      <button title="{maximized ? 'Restore' : 'Maximize'} (Ctrl+M)" onclick={toggleMax}>{maximized ? '❐' : '▢'}</button>
+      <button class="close" title="Close (Ctrl+Q)" onclick={() => closePane(pane)}>✕</button>
     </span>
   </header>
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="pane-body" ondblclick={() => setMode('insert')}>
+  <div class="pane-body">
     <div class="term" use:xterm></div>
     {#if pane.status !== 'running' && !pane.gotOutput}<div class="noout">no output</div>{/if}
   </div>
@@ -107,10 +107,10 @@
     <div class="pane-prompt">
       <span class="where"><bdi>{tilde(pane.cwd)} ❯</bdi></span>
       <input
-        bind:this={inputEl} spellcheck="false" autocomplete="off" placeholder="run here… (i)"
+        bind:this={inputEl} spellcheck="false" autocomplete="off" placeholder="run here…  (Esc: back to the main prompt)"
         oninput={(e) => { ui.comp = null; suggest(e); }}
         onblur={hideSuggest}
-        onfocus={() => { select(pane.id); ui.mode = 'insert'; }}
+        onfocus={() => { select(pane.id); ui.mode = 'pane'; }}
         onkeydown={(e) => {
           if (navKey(e)) return;
           if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); record(e.target.value); runInPane(pane, e.target.value); e.target.value = ''; ui.hsearch = null; }

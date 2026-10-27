@@ -8,13 +8,16 @@ export const els = { prompt: null, desk: null };
 export const handlers = { completions: null, history: null };
 
 let paneSeq = 0, tabSeq = 0;
-const makeTab = (cwd = '') => ({ id: 't' + (++tabSeq), cwd, tree: null, selected: null, maximized: null, lastCreated: null });
+// `selected` is the focused terminal, or the last one focused while the prompt has focus; `recent` is the focus history.
+const makeTab = (cwd = '') => ({ id: 't' + (++tabSeq), cwd, tree: null, selected: null, recent: [], maximized: null, lastCreated: null });
 
 export const ui = $state({
   tabs: [makeTab()],
   active: 't1',
   panes: [],
-  mode: 'prompt',          // 'prompt' | 'view' | 'insert' | 'side'
+  mode: 'prompt',          // where keys go: 'prompt' | 'pane' (the selected terminal) | 'side' (the closed list)
+  layer: false,            // the Ctrl+; command layer is open
+  sideFrom: 'prompt',      // mode to return to when leaving the closed list
   sidebar: false,
   sideSel: null,
   help: false,
@@ -87,32 +90,56 @@ function finish(p, code, ms, reason = null) {
     t.term.options.cursorBlink = false;
     t.term.write('\x1b[?25l');
   }
-  // Insert mode follows the terminal into its own prompt.
-  if (selected() === p) followInsert();
+  // Focus follows the terminal into its own prompt.
+  if (selected() === p) refocus();
 }
 
-// ---------------------------------------------------------------- modes
-export function setMode(mode) {
-  if (mode === 'insert') {
-    const p = selected(), t = terms.get(p?.id);
-    if (!t) mode = 'view';
-    else { ui.mode = 'insert'; (p.status === 'running' ? t.term : t.input)?.focus(); return; }
-  }
-  ui.mode = mode;
-  if (mode === 'prompt') els.prompt?.focus();
-  else els.desk?.focus({ preventScroll: true });
+// ---------------------------------------------------------------- focus
+export function focusPrompt() {
+  ui.mode = 'prompt';
+  els.prompt?.focus();
 }
 
-// Insert mode is global: after the selected terminal changes, focus the new one (or fall back to view if there is none).
-function followInsert() {
-  if (ui.mode === 'insert') tick().then(() => ui.mode === 'insert' && setMode('insert'));
+// Focuses a terminal of the active tab (the selected one by default): a running one's xterm, a finished one's prompt.
+export async function focusPane(id = activeTab()?.selected) {
+  if (!id || !paneById(id)) return focusPrompt();
+  select(id);
+  ui.mode = 'pane';
+  await tick();
+  const p = paneById(id), t = terms.get(id);
+  if (ui.mode === 'pane' && activeTab()?.selected === id) (p?.status === 'running' ? t?.term : t?.input)?.focus();
+}
+
+// After the selected terminal changes or re-renders, keep the keyboard on it (or the prompt if there is none).
+const refocus = () => ui.mode === 'pane' && focusPane();
+
+function bottomPane() {
+  const rs = [...fullRects(activeTab()).entries()];
+  rs.sort(([, a], [, b]) => b.y + b.h - (a.y + a.h) || a.x - b.x);
+  return rs[0]?.[0];
+}
+export const focusLast = () => focusPane(activeTab()?.selected || bottomPane());
+export const toggleFocus = () => (ui.mode === 'prompt' ? focusLast() : focusPrompt());
+
+export function focusDir(dir) {
+  const tab = activeTab();
+  const next = tab?.selected && L.neighbor(fullRects(tab), tab.selected, dir);
+  if (next) focusPane(next);
+  else if (dir === 'down') focusPrompt();
+}
+
+export function focusPrevious() {
+  const tab = activeTab(), live = L.leaves(tab?.tree);
+  const cur = ui.mode === 'pane' ? tab.selected : null;
+  const prev = tab?.recent.filter((id) => id !== cur && live.includes(id)).pop();
+  if (prev) focusPane(prev);
 }
 
 // ---------------------------------------------------------------- panes
 function insertInto(tab, id) {
   tab.tree = L.insert(tab.tree, tab.lastCreated, id, 'bottom');
   tab.lastCreated = id;
-  tab.selected = id;
+  setSelected(tab, id);
   tab.maximized = null;
 }
 
@@ -123,8 +150,9 @@ function detach(p) {
     const map = fullRects(tab);
     tab.selected = ['down', 'up', 'right', 'left'].map((d) => L.neighbor(map, p.id, d)).find(Boolean) ?? null;
     if (tab.maximized === p.id) tab.maximized = tab.selected;
-    if (tab.id === ui.active) followInsert();
+    if (tab.id === ui.active) refocus();
   }
+  tab.recent = tab.recent.filter((id) => id !== p.id);
   tab.tree = L.remove(tab.tree, p.id);
   if (tab.maximized === p.id) tab.maximized = null;
 }
@@ -141,11 +169,12 @@ function start(id, cwd) {
   const { cols, rows } = t.term;
   t.lastSize = { cols, rows };
   send({ type: 'run', id, tab: p.tab, cmd: p.cmd, cols, rows, cwd });
+  if (selected() === p) refocus();
 }
 
 const CD = /^cd(?:\s+([^\s'"`$\\;&|<>(){}*?[\]!#]+))?$/;
 
-export async function runCommand(cmd, insert = false, inPane = false) {
+export async function runCommand(cmd, focus = false, inPane = false) {
   const cd = !inPane && cmd.match(CD);
   if (cd) return send({ type: 'cd', tab: ui.active, path: cd[1] ?? '', cmd });
   const tab = activeTab();
@@ -154,15 +183,19 @@ export async function runCommand(cmd, insert = false, inPane = false) {
   insertInto(tab, id);
   await tick();
   start(id);
-  if (insert) setMode('insert');
+  if (focus) focusPane(id);
+}
+
+function setSelected(tab, id) {
+  tab.selected = id;
+  tab.recent = [...tab.recent.filter((x) => x !== id), id].slice(-20);
 }
 
 export function select(id) {
   const tab = activeTab();
   if (!tab || !id) return;
-  tab.selected = id;
+  setSelected(tab, id);
   if (tab.maximized) tab.maximized = id;
-  followInsert();
 }
 
 export function closePane(p = selected()) {
@@ -177,7 +210,7 @@ export async function reopen(p = closedPanes()[0]) {
   p.closed = false;
   p.tab = ui.active;
   insertInto(activeTab(), p.id);
-  followInsert();
+  refocus();
 }
 
 export function destroy(p = selected()) {
@@ -190,8 +223,17 @@ export function destroy(p = selected()) {
 }
 
 export function kill(p = selected()) { if (p?.status === 'running') send({ type: 'kill', id: p.id }); }
-export function interrupt(p = selected()) { if (p?.status === 'running') send({ type: 'input', id: p.id, data: '\x03' }); }
-export function sendEsc(p = selected()) { if (p?.status === 'running') send({ type: 'input', id: p.id, data: '\x1b' }); }
+
+// Pastes clipboard text into a running terminal (bracketed if the program asked); with no text
+// (say, an image) it sends a plain ^V so the program can read the clipboard itself.
+export function paste(p = selected()) {
+  const t = terms.get(p?.id);
+  Promise.resolve(navigator.clipboard?.readText()).catch(() => '').then((text) => {
+    if (!t || p.status !== 'running') return;
+    if (text) t.term.paste(text);
+    else send({ type: 'input', id: p.id, data: '\x16' });
+  });
+}
 
 export function rerun(p = selected()) {
   const t = p && terms.get(p.id);
@@ -208,8 +250,6 @@ export async function runInPane(p, cmd) {
   p.cmd = cmd.trim();
   t.term.reset();
   start(p.id, p.cwd);
-  await tick();
-  if (ui.mode === 'insert' && selected() === p) t.term.focus();
 }
 
 const finished = () => L.leaves(activeTab()?.tree).map(paneById).filter((p) => p.status !== 'running' && !p.pinned);
@@ -219,13 +259,17 @@ export function togglePin(p = selected()) { if (p) p.pinned = !p.pinned; }
 
 // ------------------------------------------------------------- sidebar
 export function openSidebar() {
+  if (ui.mode !== 'side') ui.sideFrom = ui.mode;
   ui.sidebar = true;
   ui.sideSel = closedPanes()[0]?.id ?? null;
-  setMode('side');
+  ui.mode = 'side';
+  els.desk?.focus({ preventScroll: true });
 }
+// Back to wherever the keyboard was before the list was opened; the list stays visible.
+export const leaveSidebar = () => (ui.sideFrom === 'pane' ? focusPane() : focusPrompt());
 export function closeSidebar() {
   ui.sidebar = false;
-  if (ui.mode === 'side') setMode('view');
+  if (ui.mode === 'side') leaveSidebar();
 }
 export function sideMove(d) {
   const list = closedPanes();
@@ -236,23 +280,17 @@ export function sideMove(d) {
 // Act on the highlighted closed terminal, then highlight the one that took its place.
 export async function sideAct(fn) {
   const list = closedPanes(), i = list.findIndex((p) => p.id === ui.sideSel);
-  if (i < 0) return setMode('view');
+  if (i < 0) return leaveSidebar();
   await fn(list[i]);
   const rest = closedPanes();
   ui.sideSel = rest[Math.min(i, rest.length - 1)]?.id ?? null;
-  if (!ui.sideSel) setMode('view');
+  if (!ui.sideSel) leaveSidebar();
 }
 
 export function toggleMax() {
   const tab = activeTab();
   if (!tab?.selected) return;
   tab.maximized = tab.maximized ? null : tab.selected;
-}
-
-export function selectDir(dir) {
-  const tab = activeTab();
-  if (!tab?.selected) return select(L.leaves(tab?.tree)[0]);
-  select(L.neighbor(fullRects(tab), tab.selected, dir));
 }
 
 export function swapDir(dir) {
@@ -268,17 +306,12 @@ export function nudge(side) {
 
 export function equalize() { const tab = activeTab(); if (tab) tab.tree = L.equalize(tab.tree); }
 
-export function cycle(delta) {
-  const ids = L.leaves(activeTab()?.tree);
-  if (!ids.length) return;
-  const i = ids.indexOf(activeTab().selected);
-  select(ids[(i + delta + ids.length) % ids.length]);
-}
-
 const selTerm = () => terms.get(selected()?.id)?.term;
+export const hasSelection = () => !!selTerm()?.hasSelection();
 export function copySelection() {
-  const text = selTerm()?.getSelection().replace(/\s+$/, '');
+  const t = selTerm(), text = t?.getSelection().replace(/\s+$/, '');
   if (text) navigator.clipboard?.writeText(text).catch(() => {});
+  t?.clearSelection();
 }
 export function selectAll() { selTerm()?.selectAll(); }
 export function scroll(how) {
@@ -295,15 +328,17 @@ export function newTab(activate = true) {
   const t = makeTab(from?.cwd);
   ui.tabs.push(t);
   send({ type: 'tab-open', tab: t.id, from: from?.id });
-  if (activate) ui.active = t.id;
+  if (activate) { ui.active = t.id; refocus(); }
   return tabById(t.id);
 }
+
+export const newWindow = () => send({ type: 'new-window', cwd: activeTab()?.cwd });
 
 export function gotoTab(i) {
   const t = ui.tabs[i];
   if (!t) return;
   ui.active = t.id;
-  followInsert();
+  refocus();
 }
 const activeIndex = () => ui.tabs.findIndex((t) => t.id === ui.active);
 export function shiftTab(d) { gotoTab((activeIndex() + d + ui.tabs.length) % ui.tabs.length); }
@@ -316,7 +351,7 @@ export function closeTab(id = ui.active) {
   const i = ui.tabs.indexOf(tab);
   ui.tabs.splice(i, 1);
   send({ type: 'tab-close', tab: id });
-  if (ui.active === id) ui.active = ui.tabs[Math.max(0, i - 1)].id;
+  if (ui.active === id) { ui.active = ui.tabs[Math.max(0, i - 1)].id; refocus(); }
 }
 
 export function moveToTab(p, tabId) {
@@ -339,7 +374,7 @@ function dock(p, target, side) {
   const tab = activeTab();
   if (!p || target === p.id) return;
   tab.tree = L.insert(L.remove(tab.tree, p.id), target, p.id, side);
-  tab.selected = p.id;
+  setSelected(tab, p.id);
 }
 
 export function startDrag(e, id) {

@@ -36,38 +36,47 @@ http://127.0.0.1:7777 (set `PORT=…` to change it).
 
 ## Using it
 
-Shelf is modal, like vim. The badge at the right of the prompt shows the
-current mode; press `?` in view mode for every shortcut.
+Keys go to one place at a time: the prompt at the bottom, or one terminal.
+App shortcuts only use Ctrl keys that terminal programs can't receive or
+barely use, so everything else (Esc, Tab, Alt keys, Ctrl+R, Ctrl+W…) reaches
+the program. `F1` lists every shortcut.
 
-- **Prompt** — type commands. `Enter` runs, `Ctrl+Enter` runs and types into
-  the new terminal, `Tab` completes, `↑` `↓` history. `Esc` → view mode.
-- **View** — keys never reach programs. Arrow keys move between terminals,
-  `i` types into the selected one, `Esc` closes it, `m` maximizes, `k` kills,
-  `c` sends Ctrl+C, `r` re-runs. Select text with the mouse and `Ctrl+C` copies.
-  `t` new tab, `1`–`9` switch tabs, `Shift+1`–`9` move the terminal to a tab.
-- **Insert** — every key goes to the selected terminal. `Esc` returns to view
-  mode; `Shift+Esc` sends a real Esc to the program (vim, less…).
-  A finished terminal shows its own prompt: in insert mode you type there and
-  `Enter` runs the command in that terminal (replacing its output), starting
-  where the last one ended.
-- `Ctrl+`` ` jumps back to the prompt from anywhere.
+- **Prompt** — type commands. `Enter` runs and focuses the new terminal,
+  `Ctrl+Enter` runs and stays in the prompt, `Tab` completes, `↑` `↓` history.
+- **Terminals** — click one, or use `Ctrl+←↑→↓`, to type into it (`Ctrl+↓`
+  from the bottom one returns to the prompt, `Ctrl+↑` from the prompt goes
+  back). ``Ctrl+` `` toggles between the prompt and the last terminal,
+  `Ctrl+Tab` returns to the previous one. `Ctrl+M` maximizes, `Ctrl+Q` closes,
+  `Ctrl+.` runs again. These act on the focused terminal, or on the last one
+  (faintly outlined) while the prompt has focus.
+- **Copy and paste** — select output with the mouse and `Ctrl+C` copies it;
+  with nothing selected, `Ctrl+C` interrupts as usual. `Ctrl+V` pastes text
+  (with an image on the clipboard the program gets `^V`, so Claude Code can
+  paste it). `Ctrl+Z` is ignored: commands run without job control, so a
+  suspended one could never come back. `Shift+PgUp` / `Shift+PgDn` scroll.
+- **Finished terminals** show their own prompt: type there and `Enter` runs
+  the command in that terminal (replacing its output), starting where the last
+  one ended. `Esc` clears it, then returns to the main prompt.
+- **Command layer** — `Ctrl+;` then one key: arrows swap terminals,
+  `Shift`+arrows resize, `=` equalizes (these repeat until another key),
+  `t` / `w` new / close tab, `1`–`9` move the terminal to a tab, `k` kills,
+  `u` reopens, `b` opens the closed list, `p` pins, `l` closes finished
+  terminals, `n` opens a new window. A bar lists the keys while it's open.
+- **Tabs** — `Ctrl+PgUp` / `Ctrl+PgDn` or `Ctrl+1`–`9`.
 
 Layout:
 
 - **Docking.** The first terminal fills the window, and each new one docks
   below the last one. Drag a header onto another terminal's edge, a window
   edge, or a tab to move it. Drag the gaps to resize.
-- **Closed list.** Closing a terminal hides it in the list on the left (`b`
-  toggles it). It keeps running; click it or press `u` to bring it back, or
-  `X` to kill and remove it for good.
+- **Closed list.** Closing a terminal hides it in the list on the left
+  (`Ctrl+;` `b`). It keeps running; click it or press `Enter` there (or
+  `Ctrl+;` `u`) to bring it back, or `X` to kill and remove it for good.
 - **Tabs.** Each tab has its own working directory and environment: a `cd` in
   one tab doesn't affect the others. New tabs start where the current one is.
-- **Windows.** `⌘N` / `Ctrl+Shift+N` opens a new window, which is its own shell
-  session. Closing a window with commands still running asks first. Links in
-  output open in your browser.
-
-On Linux every app shortcut uses `Ctrl+Shift`, so plain `Ctrl` keys always
-reach the program in insert mode.
+- **Windows.** `Ctrl+;` `n` (`⌘N` on macOS) opens a new window, which is its
+  own shell session. Closing a window with commands still running asks first.
+  Links in output open in your browser.
 
 ## How it works
 

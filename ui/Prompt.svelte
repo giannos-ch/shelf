@@ -14,12 +14,12 @@
   function autoGrow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight + 2, 180) + 'px'; }
   function setInput(v) { input.value = v; autoGrow(); input.selectionStart = input.selectionEnd = v.length; }
 
-  function runInput(insert) {
+  function runInput(focus) {
     const cmd = input.value.trim();
     if (!cmd) return;
     record(input.value);
     input.value = ''; autoGrow(); ui.comp = ui.hsearch = null;
-    runCommand(cmd, insert);
+    runCommand(cmd, focus);
   }
 
   function onKeydown(e) {
@@ -47,11 +47,10 @@
   <div id="cwd" title={cwd}><bdi>{tilde(cwd)} ❯</bdi></div>
   <textarea
     bind:this={input} rows="1" spellcheck="false" autocomplete="off" autocapitalize="off"
-    placeholder="Run a command…   (Esc: view mode · ? help)"
+    placeholder="Run a command…   (Ctrl+↑: terminals · F1: help)"
     oninput={(e) => { autoGrow(); ui.comp = null; suggest(e); }}
     onblur={hideSuggest}
     onkeydown={onKeydown}
     onfocus={() => (ui.mode = 'prompt')}
   ></textarea>
-  <span class="mode {ui.mode}">{ui.mode.toUpperCase()}</span>
 </div>

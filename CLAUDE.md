@@ -29,7 +29,7 @@ Shelf is a terminal where the prompt is a text box and each command runs in its 
   - `layout.js` is the pure docking tree (`{pane}` leaves, `{dir, children, sizes}` splits) → rects, neighbors, drop targets.
   - `keys.js` holds the `SHORTCUTS` table; it drives both the capture-phase keydown handler and the help overlay, so add shortcuts there.
   - Panes render as one flat keyed list, absolutely positioned from the tree's rects, so xterm never remounts when the layout changes.
-  - Modes: prompt / view (keys never reach programs) / insert (keys go to the selected pane; `Esc` leaves, `Shift+Esc` sends Esc).
+  - Focus: keys go to one place, the main prompt or one pane (`ui.mode`: `prompt` / `pane` / `side` for the closed list); the focused pane is the tab's `selected` one, and a running pane gets every key the app doesn't claim, Esc included. `Ctrl+;` opens a one-key command layer (`ui.layer`).
   - No per-command special cases, except a bare `cd <dir>` which just changes the tab's cwd (`Session.cd`); anything fancier, or a failing cd, runs in a pane.
 
 ### State carry-over between commands
@@ -42,4 +42,4 @@ Each command runs as `bash --noprofile --norc -c WRAPPER` with the command in `_
 
 ### Platform note
 
-On Linux all app shortcuts use `Ctrl+Shift` so plain `Ctrl` keys reach the program in a pane — preserve this when adding shortcuts.
+Shelf only takes Ctrl keys that programs can't receive or barely use (see `keys.js`); everything else must reach the program. Don't add Ctrl+Shift shortcuts.

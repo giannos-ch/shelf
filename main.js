@@ -120,26 +120,32 @@ function createWindow(cwd = startDir()) {
   return win;
 }
 
+const isDir = (d) => { try { return fs.statSync(d).isDirectory(); } catch { return false; } };
+
 ipcMain.on('shelf:send', (e, msg) => {
   // Only our own page may drive a shell.
   if (!e.senderFrame || !e.senderFrame.url.startsWith(ORIGIN + '/')) return;
+  if (msg?.type === 'new-window') return void createWindow(typeof msg.cwd === 'string' && isDir(msg.cwd) ? msg.cwd : focusedCwd());
   sessions.get(e.sender.id)?.handle(msg);
 });
 
-// Keyboard shortcuts must not steal keys from programs running in panes, so
-// on Linux every app shortcut uses Ctrl+Shift (Ctrl+W, Ctrl+N… stay with the
-// terminal). On macOS the Cmd key is free for the app.
+const zoom = (d) => (_i, w) => w?.webContents.setZoomLevel(d && w.webContents.getZoomLevel() + d);
+
+// Menu accelerators fire before the page sees a key, so outside macOS there are
+// none: every Ctrl key belongs to the page's shortcuts (ui/keys.js) or the
+// program in a pane. The zoom items are plain clicks because their roles bring
+// Ctrl+=/Ctrl+- along. On macOS the Cmd key is free for the app.
 function buildMenu() {
-  const key = (mac, other) => (isMac ? mac : other);
+  const key = (mac, other) => (isMac ? mac : other);   // undefined: no accelerator
   const template = [
     ...(isMac ? [{ role: 'appMenu' }] : []),
     {
       label: 'File',
       submenu: [
-        { label: 'New Window', accelerator: key('Cmd+N', 'Ctrl+Shift+N'), click: () => createWindow(focusedCwd()) },
+        { label: 'New Window', accelerator: key('Cmd+N'), click: () => createWindow(focusedCwd()) },
         { type: 'separator' },
-        { label: 'Close Window', accelerator: key('Cmd+W', 'Ctrl+Shift+W'), click: (_i, w) => w?.close() },
-        ...(isMac ? [] : [{ type: 'separator' }, { label: 'Quit', accelerator: 'Ctrl+Shift+Q', click: () => app.quit() }]),
+        { label: 'Close Window', accelerator: key('Cmd+W'), click: (_i, w) => w?.close() },
+        ...(isMac ? [] : [{ type: 'separator' }, { label: 'Quit', click: () => app.quit() }]),
       ],
     },
     // On macOS Cmd+C/Cmd+V only work through the Edit menu. Elsewhere Chromium
@@ -148,14 +154,14 @@ function buildMenu() {
     {
       label: 'View',
       submenu: [
-        { role: 'zoomIn', accelerator: key('Cmd+=', 'Ctrl+Shift+=') },
-        { role: 'zoomOut', accelerator: key('Cmd+-', 'Ctrl+Shift+-') },
-        { role: 'resetZoom', accelerator: key('Cmd+0', 'Ctrl+Shift+0') },
+        { label: 'Zoom In', accelerator: key('Cmd+='), click: zoom(0.5) },
+        { label: 'Zoom Out', accelerator: key('Cmd+-'), click: zoom(-0.5) },
+        { label: 'Actual Size', accelerator: key('Cmd+0'), click: zoom(0) },
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { type: 'separator' },
         { label: 'Reload Window (stops running commands)', click: (_i, w) => w?.webContents.reload() },
-        { role: 'toggleDevTools', accelerator: key('Alt+Cmd+I', 'Ctrl+Shift+I') },
+        { role: 'toggleDevTools', accelerator: key('Alt+Cmd+I', 'F12') },
       ],
     },
     ...(isMac ? [{ role: 'windowMenu' }] : []),
@@ -164,8 +170,8 @@ function buildMenu() {
 }
 
 app.whenReady().then(async () => {
-  // The page needs no camera, notifications, etc. — only clipboard writes for copy.
-  electronSession.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'clipboard-sanitized-write'));
+  // The page needs no camera, notifications, etc. — only the clipboard, for copy and Ctrl+V.
+  electronSession.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'clipboard-sanitized-write' || perm === 'clipboard-read'));
   registerProtocol();
   buildMenu();
   const loginEnv = await loadLoginEnv();

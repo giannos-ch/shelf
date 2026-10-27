@@ -12,7 +12,6 @@
   --run: #e3b341;
   --ok: #3fb950;
   --err: #f85149;
-  --insert: #e3b341;
   --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --ui: Inter, -apple-system, "Segoe UI", system-ui, sans-serif;
 }
@@ -115,8 +114,8 @@ kbd {
   background: var(--pane); border: 1px solid var(--line); border-radius: 8px;
   overflow: hidden;
 }
-.pane.selected { border-color: var(--line-focus); box-shadow: 0 0 0 1px var(--line-focus); }
-.pane.insert { border-color: var(--insert); box-shadow: 0 0 0 1px var(--insert); }
+.pane.focused { border-color: var(--line-focus); box-shadow: 0 0 0 1px var(--line-focus); }
+.pane.last { border-color: rgba(91,141,239,.45); }
 .pane.dragging { opacity: .55; }
 
 .pane-head {
@@ -125,7 +124,7 @@ kbd {
   background: var(--head); border-bottom: 1px solid var(--line);
   cursor: grab; user-select: none;
 }
-.pane.selected .pane-head { background: var(--head-focus); }
+.pane.focused .pane-head { background: var(--head-focus); }
 .pane-head:active { cursor: grabbing; }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
@@ -161,7 +160,7 @@ kbd {
 .pane-prompt input {
   flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--text); font: inherit; padding: 2px 0;
 }
-.pane.insert .pane-prompt { background: rgba(227,179,65,.06); }
+.pane.focused .pane-prompt { background: rgba(91,141,239,.06); }
 .xterm .xterm-viewport { background: transparent !important; }
 .xterm-viewport::-webkit-scrollbar, .completions::-webkit-scrollbar, .hlist::-webkit-scrollbar { width: 8px; }
 .xterm-viewport::-webkit-scrollbar-thumb, .completions::-webkit-scrollbar-thumb, .hlist::-webkit-scrollbar-thumb { background: #2b3240; border-radius: 4px; }
@@ -204,12 +203,11 @@ kbd {
   background: var(--bg); color: var(--text); font: 13px/1.45 var(--mono); outline: none;
 }
 #prompt textarea:focus { border-color: var(--accent); }
-.mode {
-  flex: none; margin-bottom: 7px; padding: 1px 8px; border-radius: 4px;
-  font: 600 11px var(--mono); letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line);
+#layer {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 10px 0;
+  font-size: 12px; color: var(--muted);
 }
-.mode.view, .mode.side { color: var(--accent); border-color: var(--accent); }
-.mode.insert { color: var(--bg); background: var(--insert); border-color: var(--insert); }
+#layer .layer-name { padding: 1px 8px; border-radius: 4px; font: 600 11px var(--mono); color: var(--bg); background: var(--accent); }
 #conn { padding: 4px 10px 8px; color: var(--err); font-size: 12px; }
 
 /* ------------------------------------------------------------- help */
