@@ -181,12 +181,31 @@ export async function runCommand(cmd, focus = false, inPane = false) {
   const cd = !inPane && cmd.match(CD);
   if (cd) return send({ type: 'cd', tab: ui.active, path: cd[1] ?? '', cmd });
   const tab = activeTab();
-  const id = 'p' + (++paneSeq);
-  ui.panes.push({ id, tab: tab.id, cmd, cwd: tab.cwd, runCwd: tab.cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  const id = addPane(tab, cmd, tab.cwd);
   insertInto(tab, id);
   await tick();
   start(id);
   if (focus) focusPane(id);
+}
+
+function addPane(tab, cmd, cwd) {
+  const id = 'p' + (++paneSeq);
+  ui.panes.push({ id, tab: tab.id, cmd, cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  return id;
+}
+
+// Run the terminal's command again in a new terminal beside it, split along its longer side.
+export async function duplicate(p = selected()) {
+  const tab = activeTab();
+  if (!p || !tab) return;
+  const r = fullRects(tab).get(p.id);
+  const id = addPane(tab, p.cmd, p.runCwd);
+  tab.tree = L.insert(tab.tree, p.id, id, r && r.w > r.h * 2 ? 'right' : 'bottom');
+  setSelected(tab, id);
+  tab.maximized = null;
+  await tick();
+  start(id, p.runCwd);
+  refocus();
 }
 
 function setSelected(tab, id) {

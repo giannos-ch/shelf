@@ -66,6 +66,7 @@ export const SHORTCUTS = [
   { ctx: 'layer', label: '←↑→↓', keys: arrows(''), hint: 'swap', stay: true, desc: 'Swap with the terminal in that direction (repeatable)', run: (k) => S.swapDir(DIR[k]) },
   { ctx: 'layer', label: 'Shift+←↑→↓', keys: arrows('Shift+'), hint: 'resize', stay: true, desc: 'Move a border of the terminal (repeatable)', run: (k) => S.nudge(SIDE[arrowOf(k)]) },
   { ctx: 'layer', label: 'r', keys: ['KeyR'], hint: 'rotate', stay: true, desc: 'Turn the terminal and its closest neighbor from side by side to stacked, or back (repeatable)', run: S.rotate },
+  { ctx: 'layer', label: 'd', keys: ['KeyD'], hint: 'duplicate', desc: 'Duplicate: run the same command in a new terminal beside it', run: () => S.duplicate() },
   { ctx: 'layer', label: '=', keys: ['Equal'], hint: 'equalize', stay: true, desc: 'Equalize sizes', run: S.equalize },
   { ctx: 'layer', label: 't / w', keys: ['KeyT', 'KeyW'], hint: 'tab new/close', desc: 'New tab (starts in this tab’s directory) / close tab (its terminals go to the closed list)', run: (k) => (k === 'KeyT' ? S.newTab() : S.closeTab()) },
   { ctx: 'layer', label: '1 … 9', keys: digits(''), hint: 'move to tab', desc: 'Move the terminal to tab N', run: (k) => S.moveToIndex(digitOf(k) - 1) },
