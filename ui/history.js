@@ -26,10 +26,12 @@ export function forget(cmd) {
 }
 
 // ↑/↓ through history (dir -1 / +1) in `input`, coming back to what was typed past the newest;
-// only one prompt navigates at a time. The text to show, or null at either end.
+// only one prompt navigates at a time. `own` (oldest first) comes first going up, then the rest of history.
+// The text to show, or null at either end.
 let nav = null;   // { input, idx, draft }
-export function recall(input, dir) {
-  const items = history.items;
+export function recall(input, dir, own = []) {
+  const mine = [...new Set(own.map((c) => c.trim()).reverse())].reverse();
+  const items = [...history.items.filter((h) => !mine.includes(h)), ...mine];
   if (nav?.input !== input) nav = { input, idx: items.length, draft: '' };
   const idx = nav.idx + dir;
   if (idx < 0 || idx > items.length) return null;

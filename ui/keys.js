@@ -60,7 +60,7 @@ export const SHORTCUTS = [
   { ctx: 'pane', label: 'Esc', keys: ['Escape'], when: () => !running(), desc: 'Finished terminal: close completions or suggestions, then clear its prompt, then back to the main prompt', run: escPanePrompt },
   { ctx: 'pane', label: 'Enter', desc: 'Finished terminal: run its prompt’s command in that terminal (with history matches shown: pick one)' },
   { ctx: 'pane', label: 'Tab', desc: 'Finished terminal: pick the selected history match, else complete' },
-  { ctx: 'pane', label: '↑ ↓', desc: 'Finished terminal: history (shared with the main prompt)' },
+  { ctx: 'pane', label: '↑ ↓', desc: 'Finished terminal: its own commands, then the rest of history' },
   { ctx: 'pane', label: 'Ctrl+D', desc: 'Finished terminal with an empty prompt: close it' },
 
   { ctx: 'layer', label: '←↑→↓', keys: arrows(''), hint: 'swap', stay: true, desc: 'Swap with the terminal in that direction (repeatable)', run: (k) => S.swapDir(DIR[k]) },

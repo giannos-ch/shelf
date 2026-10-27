@@ -229,7 +229,7 @@ export async function runCommand(cmd, focus = false, inPane = false) {
 
 function addPane(tab, cmd, cwd) {
   const id = 'p' + (++paneSeq);
-  ui.panes.push({ id, tab: tab.id, cmd, cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  ui.panes.push({ id, tab: tab.id, cmd, cmds: [cmd], cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
   return id;
 }
 
@@ -309,6 +309,7 @@ export async function runInPane(p, cmd) {
   const t = p && terms.get(p.id);
   if (!t || p.status === 'running' || !cmd.trim()) return;
   p.cmd = cmd.trim();
+  p.cmds.push(p.cmd);
   t.term.reset();
   start(p.id, p.cwd);
 }

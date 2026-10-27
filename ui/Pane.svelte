@@ -109,7 +109,7 @@
           else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
           else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
-            const h = recall(e.target, e.key === 'ArrowUp' ? -1 : 1);
+            const h = recall(e.target, e.key === 'ArrowUp' ? -1 : 1, pane.cmds);
             if (h != null) { e.target.value = h; e.target.selectionStart = e.target.selectionEnd = h.length; }
           }
           else if (e.ctrlKey && e.key === 'd' && !e.target.value) { e.preventDefault(); closePane(pane); }
