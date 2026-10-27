@@ -9,7 +9,7 @@
     "web": "vite build && node server.js",
     "build": "vite build",
     "dev": "vite build --watch",
-    "check": "node ui/layout.check.js",
+    "check": "node ui/layout.check.js && node ui/paths.check.js",
     "postinstall": "electron-rebuild -f -o node-pty || echo \"node-pty could not be built for Electron; Shelf will use its python fallback.\"",
     "dist": "vite build && electron-builder",
     "dist:mac": "vite build && electron-builder --mac",

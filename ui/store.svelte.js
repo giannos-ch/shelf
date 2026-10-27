@@ -5,7 +5,7 @@ import * as L from './layout.js';
 // xterm instances live outside $state so they are never proxied.
 export const terms = new Map();   // pane id -> { term, fit, lastSize }
 export const els = { prompt: null, desk: null };
-export const handlers = { completions: null, history: null };
+export const handlers = { completions: null, history: null, stat: null };
 
 let paneSeq = 0, tabSeq = 0;
 // `selected` is the focused terminal, or the last one focused while the prompt has focus; `recent` is the focus history.
@@ -27,6 +27,7 @@ export const ui = $state({
   drag: null,
   comp: null,
   hsearch: null,           // { input, q } while a history search is open
+  hints: null,             // { pane, typed, items } while Ctrl+; o labels links
   now: Date.now(),
 });
 setInterval(() => { if (ui.panes.some((p) => p.status === 'running')) ui.now = Date.now(); }, 1000);
@@ -78,6 +79,8 @@ function onMessage(m) {
     case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms); } break;
     case 'completions': handlers.completions?.(m); break;
     case 'history': handlers.history?.(m); break;
+    case 'stat': handlers.stat?.(m); break;
+    case 'open-pane': if (m.tab === ui.active) runCommand(m.cmd, true, true); break;
     case 'cd': if (!m.ok) runCommand(m.cmd, false, true); break;
   }
 }

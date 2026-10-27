@@ -1,6 +1,7 @@
 import * as S from './store.svelte.js';
 import { closeSearch, replaceText } from './history.js';
 import { platform } from './conn.js';
+import { showHints, hintKey } from './links.js';
 
 const { ui } = S;
 const DIR = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
@@ -73,6 +74,7 @@ export const SHORTCUTS = [
   { ctx: 'layer', label: 'b', keys: ['KeyB'], hint: 'closed list', desc: 'Open the closed list and select its first entry', run: S.openSidebar },
   { ctx: 'layer', label: 'X', keys: ['Shift+KeyX'], hint: 'kill & remove', desc: 'Kill and remove for good', run: () => S.destroy() },
   { ctx: 'layer', label: 'p', keys: ['KeyP'], hint: 'pin', desc: 'Pin / unpin (pinned terminals survive l, L and Ctrl+L)', run: () => S.togglePin() },
+  { ctx: 'layer', label: 'o', keys: ['KeyO'], hint: 'open link', desc: 'Label the file links in the terminal; type a label to open it (Esc cancels)', run: () => showHints() },
   { ctx: 'layer', label: 'a', keys: ['KeyA'], hint: 'select all', desc: 'Select all output (then Ctrl+C copies)', run: S.selectAll },
   { ctx: 'layer', label: 'l / L', keys: ['KeyL', 'Shift+KeyL'], hint: 'close/remove finished', desc: 'Close finished, unpinned terminals in this tab / remove them for good', run: (k) => (k === 'KeyL' ? S.shelveFinished() : S.clearFinished()) },
   ...(platform ? [{ ctx: 'layer', label: 'n', keys: ['KeyN'], hint: 'new window', desc: 'New window', run: S.newWindow }] : []),
@@ -98,6 +100,7 @@ export function onKeydown(e) {
     if (['Escape', 'F1', 'Shift+Slash'].includes(k)) ui.help = false;
     return;
   }
+  if (ui.hints) { consume(e); hintKey(e); return; }
   if (ui.layer) {
     consume(e);
     const sc = find('layer', k);   // unknown keys just close the layer

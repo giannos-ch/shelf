@@ -3,6 +3,7 @@
   import { FitAddon } from '@xterm/addon-fit';
   import { WebLinksAddon } from '@xterm/addon-web-links';
   import { send } from './conn.js';
+  import { linksAt, openLink } from './links.js';
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
@@ -33,18 +34,27 @@
 
   // xterm's defaults warn (OSC 8 confirm, blank-window trick Electron denies); open directly.
   // In Electron, main.js's setWindowOpenHandler hands the URL to the system browser.
-  const openLink = (uri) => window.open(uri, '_blank', 'noopener');
+  const openUrl = (uri) => window.open(uri, '_blank', 'noopener');
 
   function xterm(node) {
     const term = new Terminal({
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--mono'),
       fontSize: 13, lineHeight: 1.15, cursorBlink: true, scrollback: 10000,
       theme: THEME, macOptionIsMeta: true, allowTransparency: false,
-      linkHandler: { activate: (e, uri) => openLink(uri) },
+      linkHandler: { activate: (e, uri) => openUrl(uri) },
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon((e, uri) => openLink(uri)));
+    term.loadAddon(new WebLinksAddon((e, uri) => openUrl(uri)));
+    // File paths: underlined if they exist, opened with Ctrl+click (Cmd on macOS); a plain click stays a click.
+    term.registerLinkProvider({
+      provideLinks: (y, cb) => linksAt(pane, y - 1).then((ls) => cb(ls.length ? ls.map((l) => ({
+        range: l.range, text: l.text, decorations: { underline: true, pointerCursor: true },
+        activate: (e) => (e.ctrlKey || e.metaKey) && openLink(pane, l),
+        hover: () => (node.title = `Ctrl+click to open ${l.label}`),
+        leave: () => (node.title = ''),
+      })) : undefined), () => cb(undefined)),
+    });
     term.open(node);
     const entry = { term, fit, lastSize: { cols: 0, rows: 0 } };
     terms.set(pane.id, entry);

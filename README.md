@@ -78,6 +78,29 @@ Layout:
   own shell session. Closing a window with commands still running asks first.
   Links in output open in your browser.
 
+## Opening files
+
+File paths in output are underlined when you hover them, as long as the file
+exists: `src/app.js:42:7` (gcc, tsc, eslint, `grep -n`, ripgrep, Go, Rust,
+pytest), `src/app.ts(42,7)`, Python's `File "x.py", line 42`, Node stack
+frames, and plain paths. `Ctrl+click` opens the file at that line in your
+editor; a directory becomes the tab's directory, like `cd`. `Ctrl+;` `o`
+labels every link in the terminal, so you can open one by typing its label.
+
+The editor is the first of:
+
+1. `SHELF_EDITOR`, a template with `{file}`, `{line}` and `{col}`:
+   `export SHELF_EDITOR='code -g {file}:{line}:{col}'` or
+   `export SHELF_EDITOR='nvim +{line} {file}'`
+2. `$VISUAL`, then `$EDITOR` (vim, nvim, nano, micro, emacs, hx, kak, code,
+   cursor, subl and zed get the right line syntax)
+3. `code`, if it's on your `PATH`
+4. `xdg-open` (`open` on macOS), which also opens binary files such as images
+   and PDFs whatever the editor setting.
+
+Terminal editors (vim, nano, hx, `emacs -nw`…) open in a new pane; GUI editors
+open in their own window.
+
 ## How it works
 
 ```

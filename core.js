@@ -206,6 +206,8 @@ class Session extends EventEmitter {
       case 'tab-close': this.tabs.delete(String(msg.tab)); break;
       case 'run': this.run(msg); break;
       case 'cd': this.cd(msg); break;
+      case 'stat': this.stat(msg); break;
+      case 'open': this.open(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
       case 'resize': run?.pty.resize(Math.max(2, msg.cols | 0), Math.max(1, msg.rows | 0)); break;
       case 'kill': run?.pty.kill(); break;
@@ -264,6 +266,42 @@ class Session extends EventEmitter {
     }
   }
 
+  // Paths seen in a pane's output, resolved against `base` (the directory its command started in), then
+  // against the git root of `base`. Replies { path, abs, exists, isDir } for each.
+  async stat(msg) {
+    const home = os.homedir();
+    const base = typeof msg.base === 'string' && path.isAbsolute(msg.base) ? msg.base : this.stateFor(msg.tab).cwd;
+    const paths = (Array.isArray(msg.paths) ? msg.paths : []).slice(0, 200).map(String);
+    let root;
+    const items = [];
+    for (const p of paths) {
+      const rel = p === '~' ? home : p.startsWith('~/') ? home + p.slice(1) : p;
+      let abs = path.resolve(base, rel), st = await statOf(abs);
+      if (!st && !path.isAbsolute(rel)) {
+        if (root === undefined) root = await gitRoot(base);
+        if (root && (st = await statOf(path.resolve(root, rel)))) abs = path.resolve(root, rel);
+      }
+      items.push({ path: p, abs, exists: !!st, isDir: !!st?.isDirectory() });
+    }
+    this.emit('message', { type: 'stat', reqId: msg.reqId, items });
+  }
+
+  // Opens a file the UI found with stat. The path comes from program output: it only ever becomes one
+  // argument of an argv (never shell text), and a terminal editor's command is quoted word by word.
+  open(msg) {
+    const abs = String(msg.abs ?? '');
+    let st;
+    try { st = path.isAbsolute(abs) && fs.statSync(abs); } catch {}
+    if (!st) return;
+    if (st.isDirectory()) return this.cd({ tab: msg.tab, path: abs, cmd: 'cd ' + shq(abs) });
+    const env = this.stateFor(msg.tab).env;
+    const argv = editorArgv(env, abs, msg.line > 0 ? msg.line | 0 : 0, msg.col > 0 ? msg.col | 0 : 0);
+    if (isTerminalEditor(argv)) return this.emit('message', { type: 'open-pane', tab: msg.tab, cmd: argv.map(shq).join(' ') });
+    const child = spawn(argv[0], argv.slice(1), { cwd: path.dirname(abs), env, detached: true, stdio: 'ignore' });
+    child.on('error', () => {});
+    child.unref();
+  }
+
   killAll() {
     for (const { pty } of this.runs.values()) pty.kill();
     this.runs.clear();
@@ -301,6 +339,59 @@ function applyChanges(state, startCwd, startEnv, endCwd, endEnv) {
   for (const k of Object.keys(startEnv)) {
     if (!(k in endEnv) && !IGNORED_ENV.has(k) && state.env[k] === startEnv[k]) delete state.env[k];
   }
+}
+
+// ---------------------------------------------------------- opening files
+const statOf = (f) => fs.promises.stat(f).catch(() => null);
+const gitRoot = (dir) => new Promise((res) =>
+  execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 2000 }, (err, out) => res(err ? '' : out.trim())));
+const shq = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
+
+function which(cmd, env) {
+  return (env.PATH || '').split(':').some((d) => { try { fs.accessSync(path.join(d, cmd), fs.constants.X_OK); return true; } catch { return false; } });
+}
+
+const OPENER = process.platform === 'darwin' ? 'open' : 'xdg-open';
+const TERMINAL_EDITORS = new Set(['vim', 'nvim', 'vi', 'nano', 'micro', 'hx', 'helix', 'kak']);
+const isTerminalEditor = ([cmd, ...args]) => {
+  const name = path.basename(cmd);
+  return TERMINAL_EDITORS.has(name) || (/^emacs(client)?$/.test(name) && args.some((a) => ['-nw', '-t', '--tty'].includes(a)));
+};
+// How to jump to a line in editors set through $VISUAL / $EDITOR. kak takes +line:col, not file:line:col.
+const EDITOR_ARGS = {
+  ...Object.fromEntries(['vim', 'nvim', 'vi', 'nano', 'micro', 'emacs', 'emacsclient'].map((e) => [e, '+{line} {file}'])),
+  ...Object.fromEntries(['hx', 'helix', 'subl', 'zed'].map((e) => [e, '{file}:{line}:{col}'])),
+  ...Object.fromEntries(['code', 'codium', 'cursor'].map((e) => [e, '-g {file}:{line}:{col}'])),
+  kak: '+{line}:{col} {file}',
+};
+const BINARY = /\.(pdf|png|jpe?g|gif|webp|bmp|ico|tiff?|svg|mp[34]|m4a|mov|mkv|webm|avi|wav|ogg|flac|zip|gz|tgz|xz|bz2|7z|rar|docx?|xlsx?|pptx?|od[tsp])$/i;
+
+function isBinary(file) {
+  if (BINARY.test(file)) return true;
+  try {
+    const fd = fs.openSync(file, 'r'), buf = Buffer.alloc(4096), n = fs.readSync(fd, buf, 0, buf.length, 0);
+    fs.closeSync(fd);
+    return buf.subarray(0, n).includes(0);
+  } catch { return false; }
+}
+
+// The editor command for `file` as an argv: SHELF_EDITOR (a template with {file}, {line}, {col}), else
+// $VISUAL / $EDITOR / code with their known line syntax, else the system opener (always, for binary files).
+// The template is split into words before the placeholders are filled, so a path is always one whole argument.
+// ponytail: splits on whitespace only, so an editor path with spaces needs a wrapper script.
+function editorArgv(env, file, line, col) {
+  let tpl = env.SHELF_EDITOR;
+  if (!tpl) {
+    const ed = env.VISUAL || env.EDITOR || (which('code', env) ? 'code' : '');
+    tpl = ed ? `${ed} ${EDITOR_ARGS[path.basename(ed.split(/\s+/)[0])] || '{file}'}` : `${OPENER} {file}`;
+  }
+  if (isBinary(file)) tpl = `${OPENER} {file}`;
+  const vals = { file, line, col };
+  return tpl.trim().split(/\s+/)
+    .map((w) => (line ? (col ? w : w.replace(/:?\{col\}/g, '')) : w.replace(/[:+]?\{(line|col)\}/g, '')))
+    .filter(Boolean)
+    .concat(/\{file\}/.test(tpl) ? [] : ['{file}'])
+    .map((w) => w.replace(/\{(file|line|col)\}/g, (_, k) => vals[k]));
 }
 
 // ------------------------------------------------------------ completion

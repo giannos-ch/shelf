@@ -94,6 +94,10 @@
   </main>
 </div>
 
+{#each ui.hints?.items ?? [] as h}
+  {#if h.label.startsWith(ui.hints.typed)}<span class="link-hint" style="left:{h.left}px;top:{h.top}px">{h.label}</span>{/if}
+{/each}
+
 {#if ui.drag}<div class="drag-ghost" style="left:{ui.drag.x + 12}px;top:{ui.drag.y + 12}px">{ui.drag.label}</div>{/if}
 
 <footer id="bar">
@@ -127,6 +131,7 @@
           <div class="row"><kbd>drag header</kbd><span>Dock next to a terminal, a window edge, or onto a tab</span></div>
           <div class="row"><kbd>drag gap</kbd><span>Resize</span></div>
           <div class="row"><kbd>dbl-click header</kbd><span>Maximize / restore</span></div>
+          <div class="row"><kbd>Ctrl+click path</kbd><span>Open an underlined file in your editor (a directory: cd there)</span></div>
         </section>
       </div>
     </div>
