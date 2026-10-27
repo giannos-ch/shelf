@@ -75,6 +75,9 @@ function createWindow(cwd = startDir()) {
     title: 'Shelf',
     backgroundColor: '#0d0f13',
     show: false,
+    // The tab bar is the title bar: no frame, no menu bar, window buttons drawn over its right end.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#10131a', symbolColor: '#7d8696', height: 34 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -125,6 +128,7 @@ const isDir = (d) => { try { return fs.statSync(d).isDirectory(); } catch { retu
 ipcMain.on('shelf:send', (e, msg) => {
   // Only our own page may drive a shell.
   if (!e.senderFrame || !e.senderFrame.url.startsWith(ORIGIN + '/')) return;
+  if (msg?.type === 'menu') return void Menu.getApplicationMenu()?.popup({ window: BrowserWindow.fromWebContents(e.sender) });
   if (msg?.type === 'new-window') return void createWindow(typeof msg.cwd === 'string' && isDir(msg.cwd) ? msg.cwd : focusedCwd());
   sessions.get(e.sender.id)?.handle(msg);
 });

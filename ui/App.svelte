@@ -3,6 +3,7 @@
   import Pane from './Pane.svelte';
   import Prompt from './Prompt.svelte';
   import { SHORTCUTS, onKeydown } from './keys.js';
+  import { platform, send } from './conn.js';
   import {
     ui, els, init, activeTab, tabById, closedPanes, layoutOf, tabTitle, tilde, focusPrompt,
     newTab, closeTab, gotoTab, reopen, destroy, startResize, openSidebar, closeSidebar,
@@ -43,6 +44,7 @@
   <button class="add" title="New tab (Ctrl+; t)" onclick={() => newTab()}>+</button>
   <span class="spacer"></span>
   <button class="help-btn" title="Shortcuts (F1)" onclick={() => (ui.help = true)}>?</button>
+  {#if platform && platform !== 'darwin'}<button title="Menu" onclick={() => send({ type: 'menu' })}>⋯</button>{/if}
 </nav>
 
 <div id="main">

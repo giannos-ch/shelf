@@ -43,6 +43,14 @@ kbd {
   padding: 0 10px; border-radius: 6px 6px 0 0;
 }
 #tabs > button:hover, #tabs > button.on { color: var(--text); }
+/* Desktop: the tab bar doubles as the title bar. The env() insets keep it clear of the window buttons. */
+.desktop #tabs {
+  -webkit-app-region: drag;
+  padding-left: max(6px, env(titlebar-area-x, 0px));
+  padding-right: max(6px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
+}
+.desktop #tabs > * { -webkit-app-region: no-drag; }
+.desktop #tabs > .spacer { -webkit-app-region: drag; }
 .side-toggle .count {
   margin-left: 5px; padding: 0 5px; border-radius: 999px; background: var(--line); font-size: 11px;
 }
