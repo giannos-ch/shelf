@@ -194,8 +194,8 @@ kbd {
 
 #prompt { display: flex; align-items: flex-end; gap: 10px; padding: 8px 10px 10px; }
 #cwd {
-  font: 12.5px var(--mono); color: var(--accent); white-space: nowrap;
-  padding-bottom: 7px; max-width: 34%; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
+  font: 13px/1.45 var(--mono); color: var(--accent); white-space: nowrap;
+  padding-bottom: 8px; max-width: 34%; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left;
 }
 #prompt textarea {
   flex: 1; resize: none; min-height: 34px; max-height: 180px;
