@@ -7,7 +7,7 @@
   import { platform, send } from './conn.js';
   import {
     ui, els, init, activeTab, tabById, closedPanes, layoutOf, tabTitle, tilde, focusPrompt,
-    newTab, closeTab, gotoTab, reopen, destroy, startResize, openSidebar, closeSidebar, openSettings,
+    newTab, closeTab, gotoTab, startTabDrag, reopen, destroy, startResize, openSidebar, closeSidebar, openSettings,
   } from './store.svelte.js';
 
   let desk;
@@ -34,7 +34,7 @@
     <div
       class="tab" class:active={t.id === ui.active} class:drop={ui.drag?.tab === t.id}
       data-tab={t.id} title={t.cwd} role="tab" tabindex="-1" aria-selected={t.id === ui.active}
-      onclick={() => gotoTab(i)} onkeydown={() => {}}
+      onclick={() => gotoTab(i)} onkeydown={() => {}} onpointerdown={(e) => startTabDrag(e, t.id)}
       onauxclick={(e) => e.button === 1 && closeTab(t.id)}
     >
       {#if i < 9}<span class="num">{i + 1}</span>{/if}
@@ -136,6 +136,7 @@
           <div class="row"><kbd>drag output</kbd><span>Select text (Shift+drag in programs that use the mouse)</span></div>
           <div class="row"><kbd>drag header</kbd><span>Dock next to a terminal, a window edge, or onto a tab</span></div>
           <div class="row"><kbd>drag gap</kbd><span>Resize</span></div>
+          <div class="row"><kbd>drag tab</kbd><span>Reorder tabs</span></div>
           <div class="row"><kbd>dbl-click header</kbd><span>Maximize / restore</span></div>
           <div class="row"><kbd>Ctrl+click path</kbd><span>Open an underlined file in your editor (a directory: cd there)</span></div>
         </section>

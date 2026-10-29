@@ -470,6 +470,23 @@ export function startDrag(e, id) {
   window.addEventListener('pointerup', up, { once: true });
 }
 
+// Reorders live: the tab goes after every other tab whose middle is left of the pointer.
+export function startTabDrag(e, id) {
+  if (e.button !== 0) return;
+  const sx = e.clientX;
+  let on = false;
+  const move = (ev) => {
+    if (!on && Math.abs(ev.clientX - sx) < 5) return;
+    on = true;
+    const others = [...document.querySelectorAll('#tabs [data-tab]')].filter((el) => el.dataset.tab !== id);
+    const to = others.filter((el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2 < ev.clientX; }).length;
+    const from = ui.tabs.findIndex((t) => t.id === id);
+    if (to !== from) ui.tabs.splice(to, 0, ...ui.tabs.splice(from, 1));
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', () => window.removeEventListener('pointermove', move), { once: true });
+}
+
 export function startResize(e, d) {
   if (e.button !== 0) return;
   e.preventDefault();
