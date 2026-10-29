@@ -41,7 +41,8 @@ export function recall(input, dir, own = []) {
 }
 
 // fzf-style: space-separated terms, closest match first (prefix, then word start, then substring,
-// then abbreviation; earlier in the command first within each), shorter commands first, then newest first.
+// then abbreviation; earlier in the command first within each), less recent counting against it,
+// then shorter commands first, then newest first.
 // Scores one term against a lowercased command; null when it doesn't match. Abbreviations (`gcm` for
 // `git commit -m`) match each char right after the previous one or at a word start, must start in the
 // first two words and end within a word or so per char; fewer word hops and an earlier start score better.
@@ -74,7 +75,8 @@ export function matches(q) {
     seen.add(h);
     let score = 0;
     for (const t of terms) { const s = termScore(t, l); if (s == null) { score = null; break; } score += s; }
-    if (score != null) found.push({ h, score });
+    // ponytail: fixed log weight (+0.5 per 10x older); tune if recent commands win or lose too often.
+    if (score != null) found.push({ h, score: score + Math.log10(seen.size) / 2 });
   }
   found.sort((a, b) => a.score - b.score || a.h.length - b.h.length);   // stable: ties stay newest first
   return found.slice(0, 100).map((m) => m.h);
