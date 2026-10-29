@@ -213,6 +213,10 @@ class Session extends EventEmitter {
     this.runs = new Map();
     this.emitSettings = () => this.emit('message', { type: 'settings', settings, file: SETTINGS_FILE });
     settingsBus.on('change', this.emitSettings);
+    // Re-check each tab's git status so outside edits, commits and checkouts show up.
+    // ponytail: fixed 3s poll; watch .git + the work tree instead if it costs too much in huge repos.
+    this.sent = new Map();
+    this.poll = setInterval(() => { for (const t of this.tabs.keys()) if (t) this.emitState(t, true); }, 3000);
   }
 
   get runningCount() { return this.runs.size; }
@@ -226,9 +230,12 @@ class Session extends EventEmitter {
     return this.tabs.get(tab);
   }
 
-  async emitState(tab) {
+  async emitState(tab, onlyIfChanged) {
     const { cwd } = tab == null ? this.state : this.stateFor(tab);
     const git = await gitStatus(cwd);
+    const key = cwd + JSON.stringify(git);
+    if (onlyIfChanged && this.sent.get(String(tab)) === key) return;
+    this.sent.set(String(tab), key);
     this.emit('message', { type: 'state', tab, cwd, git, home: os.homedir(), backend: ptyBackend });
   }
 
@@ -236,12 +243,12 @@ class Session extends EventEmitter {
     if (!msg || typeof msg !== 'object') return;
     const run = this.runs.get(msg.id);
     switch (msg.type) {
-      case 'hello': this.killAll(); this.tabs.clear(); loadZsh(); loadSettings(); this.emitState(); break;   // UI (re)loaded: old panes are gone
+      case 'hello': this.killAll(); this.tabs.clear(); this.sent.clear(); loadZsh(); loadSettings(); this.emitState(); break;   // UI (re)loaded: old panes are gone
       case 'tab-open': this.stateFor(msg.tab, msg.from); this.emitState(msg.tab); break;
       case 'history': this.emit('message', { type: 'history', items: readHistory() }); break;
       case 'history-add': appendHistory(String(msg.cmd || '')); break;
       case 'history-delete': deleteHistory(String(msg.cmd || '')); break;
-      case 'tab-close': this.tabs.delete(String(msg.tab)); break;
+      case 'tab-close': this.tabs.delete(String(msg.tab)); this.sent.delete(String(msg.tab)); break;
       case 'run': this.run(msg); break;
       case 'cd': this.cd(msg); break;
       case 'stat': this.stat(msg); break;
@@ -346,7 +353,7 @@ class Session extends EventEmitter {
     this.runs.clear();
   }
 
-  dispose() { this.killAll(); this.removeAllListeners(); settingsBus.off('change', this.emitSettings); }
+  dispose() { clearInterval(this.poll); this.killAll(); this.removeAllListeners(); settingsBus.off('change', this.emitSettings); }
 }
 
 function wrapperEnv(id, startEnv, startCwd, cmd) {
@@ -386,7 +393,7 @@ const gitRoot = (dir) => new Promise((res) =>
   execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 2000 }, (err, out) => res(err ? '' : out.trim())));
 // { branch, ahead, behind, dirty } for the repo `dir` is in, or null outside one.
 const gitStatus = (dir) => new Promise((res) =>
-  execFile('git', ['-C', dir, 'status', '--porcelain=v2', '--branch'], { timeout: 2000 }, (err, out) => {
+  execFile('git', ['-C', dir, 'status', '--porcelain=v2', '--branch'], { timeout: 2000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, (err, out) => {
     if (err) return res(null);
     const lines = out.split('\n').filter(Boolean);
     const head = lines.find((l) => l.startsWith('# branch.head '))?.slice(14);
