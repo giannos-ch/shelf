@@ -35,7 +35,7 @@ export const SHORTCUTS = [
   { ctx: 'any', label: 'Ctrl+.', keys: ['Ctrl+Period'], desc: 'Run again', run: () => S.rerun() },
   { ctx: 'any', label: 'Ctrl+C', keys: ['Ctrl+KeyC'], when: () => S.hasSelection() && !inputSelection(), desc: 'With output selected: copy it (otherwise ^C goes to the program)', run: S.copySelection },
   { ctx: 'any', label: 'Shift+PgUp / PgDn', keys: ['Shift+PageUp', 'Shift+PageDown'], desc: 'Scroll the output a page', run: (k) => S.scroll(k === 'Shift+PageUp' ? -1 : 1) },
-  { ctx: 'any', label: 'Ctrl+PgUp / PgDn', keys: ['Ctrl+PageUp', 'Ctrl+PageDown'], desc: 'Previous / next tab', run: (k) => S.shiftTab(k === 'Ctrl+PageUp' ? -1 : 1) },
+  { ctx: 'any', label: 'Ctrl+PgUp / PgDn, Ctrl+[ / ]', keys: ['Ctrl+PageUp', 'Ctrl+PageDown', 'Ctrl+BracketLeft', 'Ctrl+BracketRight'], desc: 'Previous / next tab', run: (k) => S.shiftTab(['Ctrl+PageUp', 'Ctrl+BracketLeft'].includes(k) ? -1 : 1) },
   { ctx: 'any', label: 'Ctrl+1 … 9', keys: digits('Ctrl+'), desc: 'Go to tab', run: (k) => S.gotoTab(digitOf(k) - 1) },
   { ctx: 'any', label: 'Ctrl+;', keys: ['Ctrl+Semicolon'], desc: 'Command layer (see below)', run: () => (ui.layer = true) },
   { ctx: 'any', label: 'F1', keys: ['F1'], desc: 'This help', run: () => (ui.help = true) },
