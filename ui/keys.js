@@ -12,8 +12,12 @@ const digits = (mod) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => mod + 'Digit' + n
 const digitOf = (k) => +k.slice(-1);
 const running = () => S.selected()?.status === 'running';
 const closeLists = () => (ui.comp ? (ui.comp = null) : closeSearch());
-// A text input's own selection wins over the terminal's.
-const inputSelection = () => document.activeElement?.selectionStart < document.activeElement?.selectionEnd;
+// A text input's own selection wins over the terminal's. Not xterm's helper textarea: on Linux it holds
+// a copy of the terminal's selection (for middle-click paste), selected.
+const inputSelection = () => {
+  const el = document.activeElement;
+  return !el?.classList.contains('xterm-helper-textarea') && el?.selectionStart < el?.selectionEnd;
+};
 
 // Esc in a finished terminal's prompt: close completions or suggestions, then clear the text, then back to the main prompt.
 function escPanePrompt() {
