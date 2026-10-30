@@ -126,6 +126,8 @@ function onMessage(m) {
 
 function finish(p, code, ms, reason = null) {
   Object.assign(p, { status: code === 0 ? 'ok' : 'err', code, ms: ms ?? Date.now() - p.started, reason });
+  // The closed list only holds running terminals.
+  if (p.closed) return destroy(p);
   const t = terms.get(p.id);
   if (t) {
     t.term.options.disableStdin = true;
@@ -259,8 +261,10 @@ export function select(id) {
   if (tab.maximized) tab.maximized = id;
 }
 
+// A running terminal goes to the closed list; a finished one is removed for good.
 export function closePane(p = selected()) {
   if (!p || p.closed) return;
+  if (p.status !== 'running') return destroy(p);
   detach(p);
   p.closed = true;
   p.closedAt = Date.now();
@@ -274,7 +278,7 @@ export async function reopen(p = closedPanes()[0]) {
   refocus();
 }
 
-export function destroy(p = selected()) {
+function destroy(p) {
   if (!p) return;
   if (p.status === 'running') send({ type: 'kill', id: p.id });
   if (!p.closed) detach(p);
@@ -315,7 +319,6 @@ export async function runInPane(p, cmd) {
 }
 
 const finished = () => L.leaves(activeTab()?.tree).map(paneById).filter((p) => p.status !== 'running' && !p.pinned);
-export function shelveFinished() { for (const p of finished()) closePane(p); }
 export function clearFinished() { for (const p of finished()) destroy(p); }
 export function togglePin(p = selected()) { if (p) p.pinned = !p.pinned; }
 

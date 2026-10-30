@@ -7,7 +7,7 @@
   import { platform, send } from './conn.js';
   import {
     ui, els, init, activeTab, tabById, closedPanes, layoutOf, tabTitle, tilde, focusPrompt,
-    newTab, closeTab, gotoTab, startTabDrag, reopen, destroy, startResize, openSidebar, closeSidebar, openSettings,
+    newTab, closeTab, gotoTab, startTabDrag, reopen, kill, startResize, openSidebar, closeSidebar, openSettings,
   } from './store.svelte.js';
 
   let desk;
@@ -61,10 +61,10 @@
             <span class="cmd">{p.cmd.replace(/\n/g, ' ⏎ ')}</span>
             <span class="where">{tilde(p.cwd)}</span>
           </button>
-          <button class="x" title="Kill and remove" onclick={() => destroy(p)}>✕</button>
+          <button class="x" title="Kill" onclick={() => kill(p)}>✕</button>
         </div>
       {:else}
-        <div class="side-empty">Terminals you close (Ctrl+Q, or Ctrl+; l for finished ones) keep running here.</div>
+        <div class="side-empty">Running terminals you close (Ctrl+Q) keep running here.</div>
       {/each}
     </aside>
   {/if}
