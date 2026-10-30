@@ -41,12 +41,11 @@ export function insert(tree, target, id, side = 'bottom') {
     if (!node.children) return node;
     const i = node.children.findIndex((c) => c.pane === target);
     if (i >= 0 && node.dir === dir) {
-      const children = [...node.children], sizes = [...node.sizes];
-      const half = sizes[i] / 2;
-      sizes[i] = half;
+      const children = [...node.children], s = 1 / (children.length + 1);
+      const sizes = node.sizes.map((x) => x * (1 - s));
       const at = before ? i : i + 1;
       children.splice(at, 0, leaf);
-      sizes.splice(at, 0, half);
+      sizes.splice(at, 0, s);
       return { dir, children, sizes };
     }
     return { ...node, children: node.children.map(walk) };
