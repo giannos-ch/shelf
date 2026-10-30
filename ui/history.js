@@ -40,7 +40,7 @@ export function recall(input, dir, own = []) {
   return idx === items.length ? nav.draft : items[idx];
 }
 
-// fzf-style: space-separated terms, closest match first (prefix, then word start, then substring,
+// The command typed exactly comes first (so Enter runs it), then fzf-style: space-separated terms, closest match first (prefix, then word start, then substring,
 // then abbreviation; earlier in the command first within each), less recent counting against it,
 // then shorter commands first, then newest first.
 // Scores one term against a lowercased command; null when it doesn't match. Abbreviations (`gcm` for
@@ -76,7 +76,8 @@ export function matches(q) {
     let score = 0;
     for (const t of terms) { const s = termScore(t, l); if (s == null) { score = null; break; } score += s; }
     // ponytail: fixed log weight (+0.5 per 10x older); tune if recent commands win or lose too often.
-    if (score != null) found.push({ h, score: score + Math.log10(seen.size) / 2 });
+    if (h === q.trim()) found.push({ h, score: -Infinity });
+    else if (score != null) found.push({ h, score: score + Math.log10(seen.size) / 2 });
   }
   found.sort((a, b) => a.score - b.score || a.h.length - b.h.length);   // stable: ties stay newest first
   return found.slice(0, 100).map((m) => m.h);
@@ -111,7 +112,7 @@ export function navKey(e) {
   const found = matches(s.q);
   if (!found.length) return false;
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-    if (found[s.sel] === e.target.value) { ui.hsearch = null; return false; }   // nothing to pick: let Enter run it
+    if (found[s.sel] === e.target.value.trim()) { ui.hsearch = null; return false; }   // nothing to pick: let Enter run it
     closeSearch(found[s.sel]); e.preventDefault(); return true;
   }
   if (e.key === 'Delete' && e.shiftKey) { forgetMatch(s.sel); e.preventDefault(); return true; }
