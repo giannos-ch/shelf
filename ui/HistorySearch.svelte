@@ -12,6 +12,7 @@
     <div class="hlist" bind:this={list}>
       {#each found as h, i}
         <!-- pointerdown is cancelled so the prompt keeps focus and the list stays open -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="hrow" class:sel={i === ui.hsearch.sel} onpointerdown={(e) => e.preventDefault()}>
           <button class="pick" title={h} onclick={() => closeSearch(h)}>{h}</button>
           <button class="x" title="Remove from history (Shift+Delete)" onclick={() => forgetMatch(i)}>✕</button>
