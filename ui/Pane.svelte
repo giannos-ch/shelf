@@ -14,6 +14,7 @@
   let inputEl = $state();
   const focused = $derived(selected && ui.mode === 'pane');
   $effect(() => { const e = terms.get(pane.id); if (e) e.input = inputEl; });
+  $effect(() => { pane.status; terms.get(pane.id)?.align?.(); });
 
   const meta = $derived.by(() => {
     const parts = [tilde(pane.cwd)];
@@ -57,6 +58,19 @@
       ui.mode = 'pane';
       if (pane.status !== 'running') entry.input?.focus();   // a finished terminal types into its own prompt
     });
+    // Output shorter than the terminal sits at its bottom: shift the screen down by the unused rows.
+    // A running program keeps its cursor row; a full-screen one (alternate buffer) or one with scrollback isn't shifted.
+    entry.align = () => {
+      const b = term.buffer.active;
+      let used = term.rows;
+      if (b.type === 'normal' && b.length <= term.rows) {
+        used = pane.status === 'running' ? b.cursorY + 1 : 0;
+        for (let y = term.rows - 1; y >= used; y--) if (b.getLine(y)?.translateToString(true)) { used = y + 1; break; }
+      }
+      const ch = term.element.querySelector('.xterm-screen').offsetHeight / term.rows;
+      term.element.style.transform = used < term.rows ? `translateY(${(term.rows - used) * ch}px)` : '';
+    };
+    term.onRender(entry.align);
     let raf = 0;
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf);
