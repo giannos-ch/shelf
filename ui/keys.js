@@ -28,7 +28,7 @@ function escPanePrompt() {
 }
 
 // The text box keys go to: the main prompt, or a finished terminal's own prompt.
-const promptInput = () => (ui.mode === 'prompt' ? S.els.prompt : !running() && S.terms.get(S.selected()?.id)?.input);
+const promptInput = () => (ui.mode === 'prompt' ? S.els.prompt : running() ? null : S.terms.get(S.selected()?.id)?.input);
 // Ctrl+←/→ move by word in a prompt's text, and to the next terminal from its start / end (always in a running terminal).
 const atEdge = (k) => {
   const el = promptInput(), at = { ArrowLeft: 0, ArrowRight: el?.value.length }[arrowOf(k)];
