@@ -27,6 +27,14 @@ function escPanePrompt() {
   else S.focusPrompt();
 }
 
+// The text box keys go to: the main prompt, or a finished terminal's own prompt.
+const promptInput = () => (ui.mode === 'prompt' ? S.els.prompt : !running() && S.terms.get(S.selected()?.id)?.input);
+// Ctrl+←/→ move by word in a prompt's text, and to the next terminal from its start / end (always in a running terminal).
+const atEdge = (k) => {
+  const el = promptInput(), at = { ArrowLeft: 0, ArrowRight: el?.value.length }[arrowOf(k)];
+  return !el || at == null || (el.selectionStart === at && el.selectionEnd === at);
+};
+
 // Keys are physical (e.code), so shortcuts work whatever the keyboard layout. Contexts: `any`, `prompt` (main
 // prompt focused), `pane` (a terminal focused), `layer` (the key after Ctrl+;), `side` (the closed list).
 // `when` narrows an entry further. Entries without `run` are handled where they occur and listed for help only.
@@ -53,11 +61,12 @@ export const SHORTCUTS = [
   { ctx: 'prompt', label: 'Shift+Delete', desc: 'Remove the selected history match from history (terminal prompts too)' },
   { ctx: 'prompt', label: '↑ ↓', desc: 'History' },
   { ctx: 'prompt', label: 'Ctrl+↑', keys: ['Ctrl+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
+  { ctx: 'prompt', label: 'Ctrl+← →', keys: ['Ctrl+ArrowLeft', 'Ctrl+ArrowRight'], when: atEdge, desc: 'Move by word; at the start / end of the text: focus the terminal beside the last one', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
   { ctx: 'prompt', label: '!!', desc: 'In a command: the last command run (sudo !!)' },
   { ctx: 'prompt', label: 'Esc', keys: ['Escape'], when: () => ui.comp || ui.hsearch, desc: 'Close completions or suggestions', run: closeLists },
   { ctx: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+KeyL'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
 
-  { ctx: 'pane', label: 'Ctrl+←↑→↓', keys: arrows('Ctrl+'), desc: 'Focus the terminal in that direction (↓ from the bottom one: the prompt)', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
+  { ctx: 'pane', label: 'Ctrl+←↑→↓', keys: arrows('Ctrl+'), when: atEdge, desc: 'Focus the terminal in that direction (↓ from the bottom one: the prompt; ← → in a finished terminal’s prompt move by word until its start / end)', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
   { ctx: 'pane', label: 'Ctrl+V', keys: ['Ctrl+KeyV'], when: running, desc: 'Paste text (with no text on the clipboard, ^V goes to the program)', run: () => S.paste() },
   { ctx: 'pane', label: 'Ctrl+Z', keys: ['Ctrl+KeyZ'], when: running, desc: 'Ignored: commands run without job control, so a suspended one could never resume', run: () => {} },
   { ctx: 'pane', label: 'Shift+Home / End', keys: ['Shift+Home', 'Shift+End'], when: running, desc: 'Scroll to the top / bottom', run: (k) => S.scroll(k === 'Shift+Home' ? 'top' : 'bottom') },
@@ -97,7 +106,7 @@ export const SHORTCUTS = [
 export const keyName = (e) => (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + (e.metaKey ? 'Meta+' : '') + e.code;
 
 const consume = (e) => { e.preventDefault(); e.stopPropagation(); };
-const find = (ctx, k) => SHORTCUTS.find((s) => s.run && s.ctx === ctx && s.keys.includes(k) && (!s.when || s.when()));
+const find = (ctx, k) => SHORTCUTS.find((s) => s.run && s.ctx === ctx && s.keys.includes(k) && (!s.when || s.when(k)));
 
 export function onKeydown(e) {
   if (e.isComposing || ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta'].includes(e.key)) return;
