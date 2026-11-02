@@ -43,6 +43,16 @@ function deleteOrClose() {
   else if (a < el.value.length) replaceText(el, a, a + 1, '');
   else replaceText(el, a - 1, a, '');
 }
+// Ctrl+K / Ctrl+U in a prompt: cut from the cursor to the end / start of its line, onto the clipboard.
+function cutLine(k) {
+  const el = promptInput(), v = el?.value ?? '', a = el?.selectionStart;
+  if (!v) return;
+  const nl = v.indexOf('\n', a);
+  const [from, to] = k === 'Ctrl+KeyK' ? [a, nl < 0 ? v.length : nl] : [a && v.lastIndexOf('\n', a - 1) + 1, a];
+  if (from >= to) return;
+  navigator.clipboard?.writeText(v.slice(from, to)).catch(() => {});
+  replaceText(el, from, to, '');
+}
 
 // Keys are physical (e.code), so shortcuts work whatever the keyboard layout. Contexts: `any`, `prompt` (main
 // prompt focused), `pane` (a terminal focused), `layer` (the key after Ctrl+;), `side` (the closed list).
@@ -72,6 +82,7 @@ export const SHORTCUTS = [
   { ctx: 'prompt', label: 'Ctrl+↑', keys: ['Ctrl+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
   { ctx: 'prompt', label: 'Ctrl+← →', keys: ['Ctrl+ArrowLeft', 'Ctrl+ArrowRight'], when: atEdge, desc: 'Move by word; at the start / end of the text: focus the terminal beside the last one', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
   { ctx: 'prompt', label: 'Ctrl+D', keys: ['Ctrl+KeyD'], desc: 'Delete a character; with no text: close the last terminal', run: deleteOrClose },
+  { ctx: 'prompt', label: 'Ctrl+K / U', keys: ['Ctrl+KeyK', 'Ctrl+KeyU'], desc: 'Cut the text after / before the cursor', run: cutLine },
   { ctx: 'prompt', label: '!!', desc: 'In a command: the last command run (sudo !!)' },
   { ctx: 'prompt', label: 'Esc', keys: ['Escape'], when: () => ui.comp || ui.hsearch, desc: 'Close completions or suggestions', run: closeLists },
   { ctx: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+KeyL'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
@@ -85,6 +96,7 @@ export const SHORTCUTS = [
   { ctx: 'pane', label: 'Enter', desc: 'Finished terminal: run its prompt’s command in that terminal (with history matches shown: pick one)' },
   { ctx: 'pane', label: 'Tab', desc: 'Finished terminal: pick the selected history match, else complete' },
   { ctx: 'pane', label: '↑ ↓', desc: 'Finished terminal: its own commands, then the rest of history' },
+  { ctx: 'pane', label: 'Ctrl+K / U', keys: ['Ctrl+KeyK', 'Ctrl+KeyU'], when: () => !running(), desc: 'Finished terminal: cut the text after / before the cursor in its prompt', run: cutLine },
   { ctx: 'pane', label: 'Ctrl+D', keys: ['Ctrl+KeyD'], when: () => !running(), desc: 'Finished terminal: delete a character in its prompt; with no text: close it', run: deleteOrClose },
 
   { ctx: 'layer', label: '←↑→↓', keys: arrows(''), hint: 'swap', stay: true, desc: 'Swap with the terminal in that direction (repeatable)', run: (k) => S.swapDir(DIR[k]) },
