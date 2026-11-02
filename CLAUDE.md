@@ -37,7 +37,7 @@ Shelf is a terminal where the prompt is a text box and each command runs in its 
 
 ### State carry-over between commands
 
-Each command runs as `bash --noprofile --norc -c WRAPPER` with the command in `__TP_CMD`. An `EXIT` trap writes `pwd` and the env (dumped as JSON by the Electron binary run with `ELECTRON_RUN_AS_NODE`) to temp files; `applyChanges` then merges only what *that* command changed and only where state hasn't been changed by another command meanwhile — so a slow command finishing late can't undo a later `cd`/`export`. Aliases, functions and unexported vars are not carried. `__TP_*` vars are internal and filtered out.
+Each command runs as `zsh -f -c WRAPPER` when the login shell is zsh, else `bash --noprofile --norc -c WRAPPER`, with the command in `__TP_CMD`. An `EXIT` trap writes `pwd` and the env (dumped as JSON by the Electron binary run with `ELECTRON_RUN_AS_NODE`) to temp files; `applyChanges` then merges only what *that* command changed and only where state hasn't been changed by another command meanwhile — so a slow command finishing late can't undo a later `cd`/`export`. Aliases, functions and unexported vars are not carried. `__TP_*` vars are internal and filtered out.
 
 ### PTY backends
 

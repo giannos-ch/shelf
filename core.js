@@ -10,7 +10,11 @@ const path = require('path');
 const { spawn, execFile } = require('child_process');
 const { EventEmitter } = require('events');
 
-const SHELL = '/bin/bash';
+const SHELL = '/bin/bash';   // completion (compgen)
+// Commands run in the user's login shell when it is zsh (so ~/.zshrc functions keep their zsh
+// semantics), else bash. ponytail: other shells (fish…) get bash; WRAPPER is sh-family only.
+const LOGIN_SHELL = process.env.SHELL || os.userInfo().shell || '';
+const RUN = path.basename(LOGIN_SHELL) === 'zsh' ? [LOGIN_SHELL, '-f', '-c'] : [SHELL, '--noprofile', '--norc', '-c'];
 
 // ---------------------------------------------------------------- PTY layer
 let nodePty = null;
@@ -59,13 +63,13 @@ const WRAPPER = `
 __tp_save() {
   [ -t 0 ] && stty -icanon min 0 time 0 2>/dev/null && dd bs=65536 count=1 of="$__TP_LEFT" 2>/dev/null
   if [ "$PWD" != "$__TP_START" ]; then
-    for __tp_f in "\${__tp_hooks[@]}"; do declare -F "$__tp_f" >/dev/null && "$__tp_f"; done
+    for __tp_f in "\${__tp_hooks[@]}"; do command -v "$__tp_f" >/dev/null && "$__tp_f"; done
   fi
   pwd > "$__TP_STATE" 2>/dev/null
   ELECTRON_RUN_AS_NODE=1 "$__TP_NODE" -e 'process.stdout.write(JSON.stringify(process.env))' > "$__TP_ENV" 2>/dev/null
 }
 trap __tp_save EXIT
-shopt -s expand_aliases
+[ -n "$BASH_VERSION" ] && shopt -s expand_aliases
 eval "$__TP_ALIASES" 2>/dev/null
 eval "$__TP_CMD"
 `;
@@ -272,7 +276,7 @@ class Session extends EventEmitter {
     const startCwd = msg.cwd && fs.existsSync(msg.cwd) ? msg.cwd : (fs.existsSync(state.cwd) ? state.cwd : os.homedir());
     const startEnv = { ...state.env };
     const env = wrapperEnv(id, startEnv, startCwd, String(msg.cmd));
-    const pty = spawnPty(SHELL, ['--noprofile', '--norc', '-c', WRAPPER], {
+    const pty = spawnPty(RUN[0], [...RUN.slice(1), WRAPPER], {
       cwd: startCwd, env, cols: msg.cols || 80, rows: msg.rows || 24,
     });
     const started = Date.now();
@@ -309,7 +313,7 @@ class Session extends EventEmitter {
     if (ok && target !== from && zsh.hooks) {
       const startEnv = { ...state.env };
       const env = { ...wrapperEnv('cd', startEnv, from, 'cd -- "$__TP_DIR"'), __TP_DIR: target };
-      execFile(SHELL, ['--noprofile', '--norc', '-c', WRAPPER], { cwd: from, env, timeout: 10000 },
+      execFile(RUN[0], [...RUN.slice(1), WRAPPER], { cwd: from, env, timeout: 10000 },
         () => collect(env, state, from, startEnv));
     }
   }
