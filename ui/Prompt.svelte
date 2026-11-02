@@ -3,7 +3,7 @@
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
-  import { setHistory, record, recall, suggest, hideSuggest, navKey } from './history.js';
+  import { setHistory, expandBang, record, recall, suggest, hideSuggest, navKey } from './history.js';
   import { ui, els, handlers, activeTab, runCommand, tilde } from './store.svelte.js';
 
   let input = $state();
@@ -16,9 +16,9 @@
   function setInput(v) { input.value = v; autoGrow(); input.selectionStart = input.selectionEnd = v.length; }
 
   function runInput(focus) {
-    const cmd = input.value.trim();
+    const cmd = expandBang(input.value.trim());
     if (!cmd) return;
-    record(input.value);
+    record(cmd);
     input.value = ''; autoGrow(); ui.comp = ui.hsearch = null;
     runCommand(cmd, focus);
   }

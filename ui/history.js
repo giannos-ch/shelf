@@ -18,6 +18,10 @@ export function record(cmd) {
   nav = null;
 }
 
+// `!!` stands for the last command run, as in bash (`sudo !!`).
+// ponytail: also inside quotes, unlike bash; skip quoted ones if that bites.
+export const expandBang = (cmd) => (history.items.length ? cmd.replace(/!!/g, () => history.items.at(-1)) : cmd);
+
 // Removes every copy of `cmd` from history, here and in the history file.
 export function forget(cmd) {
   history.items = history.items.filter((h) => h !== cmd);

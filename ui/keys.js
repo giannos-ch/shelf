@@ -53,6 +53,7 @@ export const SHORTCUTS = [
   { ctx: 'prompt', label: 'Shift+Delete', desc: 'Remove the selected history match from history (terminal prompts too)' },
   { ctx: 'prompt', label: '↑ ↓', desc: 'History' },
   { ctx: 'prompt', label: 'Ctrl+↑', keys: ['Ctrl+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
+  { ctx: 'prompt', label: '!!', desc: 'In a command: the last command run (sudo !!)' },
   { ctx: 'prompt', label: 'Esc', keys: ['Escape'], when: () => ui.comp || ui.hsearch, desc: 'Close completions or suggestions', run: closeLists },
   { ctx: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+KeyL'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
 

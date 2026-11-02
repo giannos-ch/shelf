@@ -7,7 +7,7 @@
   import { requestCompletion } from './complete.js';
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
-  import { suggest, hideSuggest, navKey, record, recall } from './history.js';
+  import { suggest, hideSuggest, navKey, record, recall, expandBang } from './history.js';
   import { ui, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
@@ -119,7 +119,7 @@
         onfocus={() => { select(pane.id); ui.mode = 'pane'; }}
         onkeydown={(e) => {
           if (navKey(e)) return;
-          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); record(e.target.value); runInPane(pane, e.target.value); e.target.value = ''; ui.hsearch = null; }
+          if (e.key === 'Enter' && e.target.value.trim()) { e.preventDefault(); const cmd = expandBang(e.target.value); record(cmd); runInPane(pane, cmd); e.target.value = ''; ui.hsearch = null; }
           else if (e.key === 'Tab') { e.preventDefault(); requestCompletion(e.target, pane.tab, pane.cwd); }
           else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
