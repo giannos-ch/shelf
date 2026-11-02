@@ -54,8 +54,10 @@ function spawnPty(file, args, { cwd, env, cols, rows }) {
 // next command starts where this one left off. The trap also fires on `exit`.
 // ELECTRON_RUN_AS_NODE lets the Electron binary act as plain node here.
 // Ending in another directory runs zsh's chpwd hooks first, as a cd would.
+// Keys typed into the terminal that the command never read are saved too.
 const WRAPPER = `
 __tp_save() {
+  [ -t 0 ] && stty -icanon min 0 time 0 2>/dev/null && dd bs=65536 count=1 of="$__TP_LEFT" 2>/dev/null
   if [ "$PWD" != "$__TP_START" ]; then
     for __tp_f in "\${__tp_hooks[@]}"; do declare -F "$__tp_f" >/dev/null && "$__tp_f"; done
   fi
@@ -280,10 +282,10 @@ class Session extends EventEmitter {
     pty.onExit((code) => {
       if (this.runs.get(id)?.pty !== pty) return;   // superseded by a rerun
       this.runs.delete(id);
-      const endCwd = collect(env, state, startCwd, startEnv);
+      const { endCwd, typed } = collect(env, state, startCwd, startEnv);
       // Give trailing output a moment to flush before announcing exit.
       setTimeout(() => {
-        this.emit('message', { type: 'exit', id, code, ms: Date.now() - started, cwd: endCwd || startCwd });
+        this.emit('message', { type: 'exit', id, code, ms: Date.now() - started, cwd: endCwd || startCwd, ...(typed && { typed }) });
         this.emitState(msg.tab);
       }, 30);
     });
@@ -360,16 +362,18 @@ function wrapperEnv(id, startEnv, startCwd, cmd) {
   const base = path.join(tmpRoot, id.replace(/\W/g, '_') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7));
   return {
     ...startEnv, TERM: 'xterm-256color', COLORTERM: 'truecolor', SHELF_TERMINAL: '1',
-    __TP_CMD: cmd, __TP_START: startCwd, __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
+    __TP_CMD: cmd, __TP_START: startCwd, __TP_STATE: base + '.cwd', __TP_ENV: base + '.env', __TP_LEFT: base + '.left', __TP_NODE: process.execPath, __TP_ALIASES: zsh.aliases,
   };
 }
 
-// Reads what a WRAPPER run left behind into `state`; returns its final cwd.
+// Reads what a WRAPPER run left behind into `state`; returns its final cwd and the unread typed text.
 function collect(env, state, startCwd, startEnv) {
   const endCwd = readText(env.__TP_STATE);
   applyChanges(state, startCwd, startEnv, endCwd, readJson(env.__TP_ENV));
-  for (const f of [env.__TP_STATE, env.__TP_ENV]) fs.rm(f, { force: true }, () => {});
-  return endCwd;
+  const typed = (readText(env.__TP_LEFT) || '').replace(/\x1b(\[[0-9;?]*[ -\/]*[@-~]|.)/g, '')
+    .replace(/\s*\n\s*/g, '; ').replace(/[\x00-\x1f\x7f]/g, '').trim();
+  for (const f of [env.__TP_STATE, env.__TP_ENV, env.__TP_LEFT]) fs.rm(f, { force: true }, () => {});
+  return { endCwd, typed };
 }
 
 // Apply only what *this* command changed, and only where nothing else changed

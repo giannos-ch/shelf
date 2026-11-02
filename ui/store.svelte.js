@@ -114,7 +114,7 @@ function onMessage(m) {
       if (p && !p.gotOutput) p.gotOutput = true;
       terms.get(m.id)?.term.write(m.data);
       break;
-    case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms); } break;
+    case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms, null, m.typed); } break;
     case 'completions': handlers.completions?.(m); break;
     case 'history': handlers.history?.(m); break;
     case 'stat': handlers.stat?.(m); break;
@@ -124,7 +124,7 @@ function onMessage(m) {
   }
 }
 
-function finish(p, code, ms, reason = null) {
+function finish(p, code, ms, reason = null, typed = '') {
   Object.assign(p, { status: code === 0 ? 'ok' : 'err', code, ms: ms ?? Date.now() - p.started, reason });
   // The closed list only holds running terminals.
   if (p.closed) return destroy(p);
@@ -134,6 +134,8 @@ function finish(p, code, ms, reason = null) {
     t.term.options.cursorBlink = false;
     t.term.write('\x1b[?25l');
   }
+  // Keys the command never read move into the terminal's own prompt.
+  if (typed) tick().then(() => { const i = t?.input; if (i) { i.value = typed; i.selectionStart = i.selectionEnd = typed.length; } });
   // Focus follows the terminal into its own prompt.
   if (selected() === p) refocus();
 }
