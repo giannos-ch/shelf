@@ -256,6 +256,11 @@ kbd {
 .gc.pushed .ic, .gc.pushed .sha { color: var(--muted); }
 .gf.older { color: var(--accent); }
 .gitdetail { width: 420px; max-width: 45vw; }
+.gitdiff { width: 640px; max-width: 55vw; }
+.gitdiff pre { margin: 0; padding: 0 12px; font: inherit; white-space: pre; }
+.gitdiff .add { color: var(--ok); }
+.gitdiff .del { color: var(--err); }
+.gitdiff .hunk { color: var(--accent); }
 .gd-head { padding: 4px 12px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); white-space: normal; }
 .gd-subj { font-weight: 600; color: var(--text); }
 .gd-body { margin: 4px 0 0; font: inherit; color: var(--muted); white-space: pre-wrap; max-height: 8em; overflow-y: auto; }

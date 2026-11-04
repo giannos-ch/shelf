@@ -1,18 +1,18 @@
 <script>
   // Hover popup on the git pill: changed files, then commits (unpushed first, older on request);
-  // hovering a commit opens a second popup beside it with its files and actions.
+  // hovering a commit opens a second popup beside it with its files and actions, hovering a changed file one with its diff.
   // Both are fixed-positioned because #cwd clips its overflow.
   import { send } from './conn.js';
   import { ui, handlers, activeTab, runCommand } from './store.svelte.js';
 
   const git = $derived(activeTab()?.git);
-  let pos = $state(null), older = $state(0), log = $state(null), files = $state(null), detail = $state(null), copied = $state(false);
+  let pos = $state(null), older = $state(0), log = $state(null), files = $state(null), detail = $state(null), diff = $state(null), copied = $state(false);
   const shown = {};   // sha → git-show reply
   let timer, box;
 
   // Closing waits a moment so the pointer can cross the gaps between pill and popups.
   const keep = () => clearTimeout(timer);
-  const close = () => { clearTimeout(intent); pos = detail = log = files = null; older = 0; };
+  const close = () => { clearTimeout(intent); pos = detail = diff = log = files = null; older = 0; };
   export const hide = () => { timer = setTimeout(close, 200); };
   export function show(anchor) {
     keep();
@@ -28,6 +28,7 @@
   $effect(() => { if (want) send({ type: 'git-log', tab: ui.active, n: want, head: git.branch }); });
   handlers['git-files'] = (m) => { if (pos && m.tab === ui.active) files = m; };
   handlers['git-log'] = (m) => { if (pos && m.tab === ui.active) log = m; };
+  handlers['git-diff'] = (m) => { if (diff?.path === m.path) diff = { ...diff, info: m }; };
   handlers['git-show'] = (m) => { shown[m.sha] = m; if (detail?.sha === m.sha) detail = { ...detail, info: m }; };
 
   // Switches (or clears) only once the pointer rests on a row, so a diagonal move toward the
@@ -38,11 +39,23 @@
     const r = e.currentTarget.getBoundingClientRect();
     if (!detail) showCommit(c, r); else intent = setTimeout(() => showCommit(c, r), 150);
   }
-  const clearSoon = () => { clearTimeout(intent); intent = setTimeout(() => (detail = null), 150); };
+  const clearSoon = () => { clearTimeout(intent); intent = setTimeout(() => (detail = diff = null), 150); };
+  const beside = (r) => ({ left: box.getBoundingClientRect().right + 4, bottom: innerHeight - r.bottom - 6, maxH: r.bottom - 8 });
+  function hoverFile(f, e) {
+    clearTimeout(intent);
+    if (f.path.endsWith('/')) return clearSoon();
+    const r = e.currentTarget.getBoundingClientRect();
+    const showDiff = () => {
+      detail = null;
+      diff = { path: f.path, ...beside(r) };
+      send({ type: 'git-diff', tab: ui.active, path: f.path, untracked: f.xy === '??' });
+    };
+    if (!detail && !diff) showDiff(); else intent = setTimeout(showDiff, 150);
+  }
   function showCommit(c, r) {
-    const b = box.getBoundingClientRect();
     copied = false;
-    detail = { sha: c.sha, c, info: shown[c.sha], left: b.right + 4, bottom: innerHeight - r.bottom - 6, maxH: r.bottom - 8 };
+    diff = null;
+    detail = { sha: c.sha, c, info: shown[c.sha], ...beside(r) };
     if (!detail.info) send({ type: 'git-show', tab: ui.active, sha: c.sha });
   }
 
@@ -74,7 +87,7 @@
     {#if git.dirty}
       <div class="gh" role="none" onmouseenter={clearSoon}>Changes</div>
       {#each files?.files ?? [] as f}
-        <div role="none" onmouseenter={clearSoon}>{@render fileRow(f, () => openFile(f), kind(f.xy)[0] === 'del')}</div>
+        <div role="none" onmouseenter={(e) => hoverFile(f, e)} onmouseleave={() => clearTimeout(intent)}>{@render fileRow(f, () => openFile(f), kind(f.xy)[0] === 'del')}</div>
       {/each}
       {#if !files}<div class="gf more">Loading…</div>{/if}
       {#if files?.more}<div class="gf more">… {files.more} more</div>{/if}
@@ -110,6 +123,19 @@
       {#each info.files.slice(0, 100) as f}{@render fileRow(f, () => files && run(`git show ${detail.sha} -- ${shq(files.root + '/' + f.path)}`))}{/each}
       {#if info.files.length > 100}<div class="gf more">… {info.files.length - 100} more</div>{/if}
       {#if !info.files.length}<div class="gf more">No file changes</div>{/if}
+    {/if}
+  </div>
+{/if}
+
+{#if pos && diff}
+  <div class="gitpop gitdiff" role="none" style:left="{diff.left}px" style:bottom="{Math.max(diff.bottom, 8)}px" style:max-height="{diff.maxH}px" onmouseenter={() => { keep(); clearTimeout(intent); }} onmouseleave={hide}>
+    <div class="gd-head"><div class="gd-subj">{diff.path}</div></div>
+    {#if !diff.info}<div class="gf more">Loading…</div>
+    {:else if !diff.info.lines.length}<div class="gf more">No diff to show</div>
+    {:else}
+      <pre>{#each diff.info.lines as l}<span class={l.startsWith('@@') ? 'hunk' : l[0] === '+' ? 'add' : l[0] === '-' ? 'del' : ''}>{l}</span>
+{/each}</pre>
+      {#if diff.info.more}<div class="gf more">… truncated</div>{/if}
     {/if}
   </div>
 {/if}

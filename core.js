@@ -264,6 +264,7 @@ class Session extends EventEmitter {
       case 'git-files': gitFiles(this.stateFor(msg.tab).cwd).then((r) => this.emit('message', { type: 'git-files', tab: msg.tab, ...r })); break;
       case 'git-log': this.gitLog(msg); break;
       case 'git-show': this.gitShow(msg); break;
+      case 'git-diff': this.gitDiff(msg); break;
       case 'settings-set': saveSettings(msg.settings); break;
       case 'open': this.open(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
@@ -381,6 +382,18 @@ class Session extends EventEmitter {
     this.emit('message', { type: 'git-show', tab: msg.tab, sha, author, date, body: body.trim(), files });
   }
 
+  // One changed file's working-tree diff against HEAD (untracked: against nothing), hunks only.
+  async gitDiff(msg) {
+    const rel = String(msg.path || ''), root = await gitRoot(this.stateFor(msg.tab).cwd);
+    if (!root || !path.resolve(root, rel).startsWith(root + path.sep)) return;
+    const out = msg.untracked
+      ? await gitOut(root, ['diff', '--no-index', '--', '/dev/null', rel], true)
+      : await gitOut(root, ['diff', 'HEAD', '--', rel]);
+    const lines = (out || '').trimEnd().split('\n'), at = lines.findIndex((l) => l.startsWith('@@'));
+    // ponytail: capped at 500 lines; the click still opens the whole file.
+    this.emit('message', { type: 'git-diff', tab: msg.tab, path: rel, lines: at < 0 ? [] : lines.slice(at, at + 500), more: at >= 0 && lines.length - at > 500 });
+  }
+
   open(msg) {
     const abs = String(msg.abs ?? '');
     let st;
@@ -442,8 +455,9 @@ const gitRoot = (dir) => new Promise((res) =>
   execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 2000 }, (err, out) => res(err ? '' : out.trim())));
 // `git --numstat` output → Map(path → { add, del }); binaries (and untracked files) get no entry.
 const numstat = (out) => new Map((out || '').split('\n').map((l) => l.split('\t')).filter((f) => f.length === 3 && f[0] !== '-').map(([a, d, p]) => [p, { add: +a, del: +d }]));
-const gitOut = (dir, args) => new Promise((res) =>
-  execFile('git', ['-C', dir, ...args], { timeout: 2000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, (err, out) => res(err ? null : out)));
+// `differs`: exit code 1 means "files differ" (diff --no-index), not failure.
+const gitOut = (dir, args, differs) => new Promise((res) =>
+  execFile('git', ['-C', dir, ...args], { timeout: 2000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, (err, out) => res(err && !(differs && err.code === 1) ? null : out)));
 const STATUS = ['status', '--porcelain=v2', '--branch'];
 const changed = (out) => out.split('\n').filter((l) => l && !l.startsWith('#'));
 // { branch, ahead, behind, dirty } for the repo `dir` is in, or null outside one. Polled, so one git call.
