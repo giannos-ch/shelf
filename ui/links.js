@@ -1,7 +1,7 @@
 // File links in terminal output: find them (paths.js), keep only those core.js's stat says exist, open them.
 import { findPaths } from './paths.js';
 import { send } from './conn.js';
-import { ui, handlers, terms, paneById, selected } from './store.svelte.js';
+import { ui, handlers, shownTerm, paneById, selected } from './store.svelte.js';
 
 let reqSeq = 0;
 const pending = new Map();
@@ -42,12 +42,13 @@ function logicalLine(term, y) {
 
 // The existing files on the logical line through buffer row y, with their xterm ranges (1-based, end inclusive).
 export async function linksAt(pane, y) {
-  const term = terms.get(pane.id)?.term;
+  const term = shownTerm(pane.id);
   if (!term) return [];
   const { text, cells } = logicalLine(term, y);
   const found = findPaths(text);
   if (!found.length) return [];
-  const info = await stat(pane.tab, pane.runCwd || pane.cwd, found.map((m) => m.path));
+  const cwd = pane.viewing != null ? pane.runs[pane.viewing]?.cwd : pane.runCwd || pane.cwd;
+  const info = await stat(pane.tab, cwd, found.map((m) => m.path));
   return found.filter((m) => info.get(m.path)?.exists).map((m) => {
     const a = cells[m.start], b = cells[m.end - 1];
     return {
@@ -67,7 +68,7 @@ const labels = (n) => (n <= KEYS.length ? [...KEYS] : [...HOME].flatMap((a) => [
 
 // Ctrl+; o: label every visible link in the selected terminal; typing a label opens it.
 export async function showHints(p = selected()) {
-  const term = terms.get(p?.id)?.term;
+  const term = shownTerm(p?.id);
   const screen = term?.element?.querySelector('.xterm-screen');
   if (!screen) return;
   const buf = term.buffer.active, top = buf.viewportY, bottom = top + term.rows;

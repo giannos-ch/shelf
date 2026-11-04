@@ -112,6 +112,7 @@ export const SHORTCUTS = [
   { ctx: 'layer', label: 'b', keys: ['KeyB'], hint: 'closed list', desc: 'Open the closed list and select its first entry', run: S.openSidebar },
   { ctx: 'layer', label: 'p', keys: ['KeyP'], hint: 'pin', desc: 'Pin / unpin (pinned terminals survive l and Ctrl+L)', run: () => S.togglePin() },
   { ctx: 'layer', label: 'o', keys: ['KeyO'], hint: 'open link', desc: 'Label the file links in the terminal; type a label to open it (Esc cancels)', run: () => showHints() },
+  { ctx: 'layer', label: 'h', keys: ['KeyH'], hint: 'history', stay: true, desc: 'Show the terminal’s previous run’s output (repeatable; wraps back to the current one)', run: () => S.prevRun() },
   { ctx: 'layer', label: 'a', keys: ['KeyA'], hint: 'select all', desc: 'Select all output (then Ctrl+C copies)', run: S.selectAll },
   { ctx: 'layer', label: 'l', keys: ['KeyL'], hint: 'remove finished', desc: 'Remove finished, unpinned terminals in this tab', run: S.clearFinished },
   ...(platform ? [{ ctx: 'layer', label: 'n', keys: ['KeyN'], hint: 'new window', desc: 'New window', run: S.newWindow }] : []),
@@ -143,6 +144,7 @@ export function onKeydown(e) {
     return;
   }
   if (ui.hints) { consume(e); hintKey(e); return; }
+  if (ui.runs && k === 'Escape') { consume(e); ui.runs = null; return; }
   if (ui.layer) {
     consume(e);
     const sc = find('layer', k);   // unknown keys just close the layer

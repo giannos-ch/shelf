@@ -144,9 +144,25 @@ kbd {
 .btns button.pin { filter: grayscale(1); opacity: .45; }
 .btns button.pin.on { filter: none; opacity: 1; }
 .btns button.close:hover { background: rgba(248,81,73,.18); color: var(--err); }
+.btns button.on { background: var(--hover); color: var(--text); }
+.btns button:disabled { opacity: .35; cursor: default; }
+.pane-head .tag { font-size: 10.5px; color: var(--accent); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; flex: none; }
+.runs {
+  position: absolute; top: 30px; right: 4px; z-index: 5; margin: 0; padding: 4px; list-style: none;
+  width: min(420px, calc(100% - 8px)); max-height: 60%; overflow-y: auto;
+  background: var(--head); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.3);
+}
+.runs button {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border: 0; border-radius: 4px;
+  background: transparent; color: var(--text); cursor: pointer; text-align: left;
+}
+.runs button:hover, .runs button.on { background: var(--hover); }
+.runs .cmd { font: 12px var(--mono); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .pane-body { position: relative; flex: 1; min-height: 0; padding: 6px 4px 4px 10px; }
 .pane-body .term { width: 100%; height: 100%; }
+.pane-body .term.hidden { visibility: hidden; }
+.pane-body .term.view { position: absolute; inset: 6px 4px 4px 10px; width: auto; height: auto; }
 .pane-body .noout { position: absolute; left: 12px; top: 6px; color: var(--muted); font: italic 12px var(--mono); }
 .pane-prompt {
   flex: none; display: flex; align-items: center; gap: 8px; padding: 3px 8px 4px 10px;

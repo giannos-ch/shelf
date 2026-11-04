@@ -8,7 +8,7 @@
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
   import { suggest, hideSuggest, navKey, record, recall, expandBang } from './history.js';
-  import { ui, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
@@ -16,19 +16,32 @@
   $effect(() => { const e = terms.get(pane.id); if (e) e.input = inputEl; });
   $effect(() => { pane.status; terms.get(pane.id)?.align?.(); });
 
+  // The run on screen: the pane itself, or an earlier run picked from its history.
+  const shown = $derived(pane.viewing != null ? pane.runs[pane.viewing] : pane);
   const meta = $derived.by(() => {
-    const parts = [tilde(pane.cwd)];
-    if (pane.status === 'running') parts.push(fmtDur(Math.max(0, ui.now - pane.started)));
-    else parts.push(fmtDur(pane.ms));
+    const parts = [tilde(shown.cwd)];
+    if (shown.status === 'running') parts.push(fmtDur(Math.max(0, ui.now - pane.started)));
+    else parts.push(fmtDur(shown.ms));
     return parts.filter(Boolean).join(' · ');
   });
-  const badge = $derived(pane.reason || (pane.status === 'err' ? `exit ${pane.code}` : ''));
+  const runBadge = (r) => r.reason || (r.status === 'err' ? `exit ${r.code}` : '');
+  const badge = $derived(runBadge(shown));
+  const oneLine = (c) => c.replace(/\n/g, ' ⏎ ');
+  const menuOpen = $derived(ui.runs === pane.id);
+  // History rows, newest first: i is the run's index, null for a running command (its live terminal).
+  const rows = $derived([
+    ...(pane.status === 'running' ? [{ r: pane, i: null }] : []),
+    ...pane.runs.map((r, i) => ({ r, i })).reverse(),
+  ]);
+  const onScreen = $derived(pane.viewing ?? (pane.status === 'running' ? null : pane.runs.length - 1));
+  function pick(i) { ui.runs = null; viewRun(pane, i); }
 
   // xterm's defaults warn (OSC 8 confirm, blank-window trick Electron denies); open directly.
   // In Electron, main.js's setWindowOpenHandler hands the URL to the system browser.
   const openUrl = (uri) => window.open(uri, '_blank', 'noopener');
 
-  function xterm(node) {
+  // An xterm with links and bottom alignment; `live` is the pane's own terminal, else a read-only view of a past run.
+  function makeTerm(node, live) {
     const term = new Terminal({
       ...termOptions(), lineHeight: 1.15, cursorBlink: true, scrollback: 10000,
       macOptionIsMeta: true, allowTransparency: false,
@@ -47,30 +60,35 @@
       })) : undefined), () => cb(undefined)),
     });
     term.open(node);
-    const entry = { term, fit, lastSize: { cols: 0, rows: 0 } };
-    terms.set(pane.id, entry);
-    // Keys and mouse reports reach the program only while this terminal has focus.
-    term.onData((data) => {
-      if (ui.mode === 'pane' && activeTab()?.selected === pane.id && pane.status === 'running') send({ type: 'input', id: pane.id, data });
-    });
     term.textarea?.addEventListener('focus', () => {
       select(pane.id);
       ui.mode = 'pane';
-      if (pane.status !== 'running') entry.input?.focus();   // a finished terminal types into its own prompt
+      if (pane.status !== 'running') terms.get(pane.id)?.input?.focus();   // a finished terminal types into its own prompt
     });
     // Output shorter than the terminal sits at its bottom: shift the screen down by the unused rows.
     // A running program keeps its cursor row; a full-screen one (alternate buffer) or one with scrollback isn't shifted.
-    entry.align = () => {
+    const align = () => {
       const b = term.buffer.active;
       let used = term.rows;
       if (b.type === 'normal' && b.length <= term.rows) {
-        used = pane.status === 'running' ? b.cursorY + 1 : 0;
+        used = live && pane.status === 'running' ? b.cursorY + 1 : 0;
         for (let y = term.rows - 1; y >= used; y--) if (b.getLine(y)?.translateToString(true)) { used = y + 1; break; }
       }
       const ch = term.element.querySelector('.xterm-screen').offsetHeight / term.rows;
       term.element.style.transform = used < term.rows ? `translateY(${(term.rows - used) * ch}px)` : '';
     };
-    term.onRender(entry.align);
+    term.onRender(align);
+    return { term, fit, align };
+  }
+
+  function xterm(node) {
+    const { term, fit, align } = makeTerm(node, true);
+    const entry = { term, fit, align, lastSize: { cols: 0, rows: 0 }, buf: '' };
+    terms.set(pane.id, entry);
+    // Keys and mouse reports reach the program only while this terminal has focus and is on screen.
+    term.onData((data) => {
+      if (ui.mode === 'pane' && activeTab()?.selected === pane.id && pane.status === 'running' && pane.viewing == null) send({ type: 'input', id: pane.id, data });
+    });
     let raf = 0;
     const ro = new ResizeObserver(() => {
       cancelAnimationFrame(raf);
@@ -80,7 +98,25 @@
     return { destroy: () => ro.disconnect() };
   }
 
+  // A past run's output, replayed over the pane's own terminal, which keeps running underneath. Made on first
+  // use and then only hidden: xterm throws if a terminal is disposed right after it opens.
+  let viewed = $state(false);
+  $effect(() => { if (pane.viewing != null) viewed = true; });
+  function history(node, run) {
+    const { term, fit } = makeTerm(node, false);
+    const entry = terms.get(pane.id);
+    entry.view = term;
+    const show = (r) => { if (r !== pane) { term.reset(); term.write('\x1b[?25l' + r.data); } };
+    try { fit.fit(); } catch {}
+    show(run);
+    const ro = new ResizeObserver(() => { try { fit.fit(); } catch {} });
+    ro.observe(node);
+    return { update: show, destroy: () => { ro.disconnect(); term.dispose(); if (entry.view === term) entry.view = null; } };
+  }
+
 </script>
+
+<svelte:window onpointerdown={(e) => menuOpen && !e.target.closest('.runs, .hist') && (ui.runs = null)} />
 
 <section
   class="pane"
@@ -93,19 +129,36 @@
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <header class="pane-head" onpointerdown={(e) => !e.target.closest('button') && startDrag(e, pane.id)} ondblclick={(e) => !e.target.closest('button') && toggleMax()}>
-    <span class="dot {pane.status}"></span>
-    <span class="cmd" title={pane.cmd}>{pane.cmd.replace(/\n/g, ' ⏎ ')}</span>
+    <span class="dot {shown.status}"></span>
+    <span class="cmd" title={shown.cmd}>{oneLine(shown.cmd)}</span>
+    {#if pane.viewing != null}<span class="tag">history</span>{/if}
     <span class="meta">{meta}{#if badge}{' · '}<span class="code">{badge}</span>{/if}</span>
     <span class="btns">
+      {#if rows.length > 1}
+        <button class="hist" class:on={menuOpen} title="History (Ctrl+; h)"
+          onclick={() => (ui.runs = menuOpen ? null : pane.id)}>☰</button>
+      {/if}
       <button title="Run again (Ctrl+.)" onclick={() => rerun(pane)}>↻</button>
       <button class="pin" class:on={pane.pinned} title="{pane.pinned ? 'Unpin' : 'Pin'} (Ctrl+; p)" onclick={() => togglePin(pane)}>📌</button>
       <button title="{maximized ? 'Restore' : 'Maximize'} (Ctrl+M)" onclick={toggleMax}>{maximized ? '❐' : '▢'}</button>
       <button class="close" title="Close (Ctrl+Q)" onclick={() => closePane(pane)}>✕</button>
     </span>
   </header>
+  {#if menuOpen}
+    <ul class="runs">
+      {#each rows as { r, i } (i ?? 'live')}
+        <li><button class:on={onScreen === i} title={r.cmd} onclick={() => pick(i)}>
+          <span class="dot {r.status}"></span>
+          <span class="cmd">{oneLine(r.cmd)}</span>
+          <span class="meta">{fmtDur(r === pane ? Math.max(0, ui.now - pane.started) : r.ms)}{#if runBadge(r)}{' · '}<span class="code">{runBadge(r)}</span>{/if}</span>
+        </button></li>
+      {/each}
+    </ul>
+  {/if}
   <div class="pane-body">
-    <div class="term" use:xterm></div>
-    {#if pane.status !== 'running' && !pane.gotOutput}<div class="noout">no output</div>{/if}
+    <div class="term" class:hidden={pane.viewing != null} use:xterm></div>
+    {#if viewed}<div class="term view" class:hidden={pane.viewing == null} use:history={shown}></div>{/if}
+    {#if shown.status !== 'running' && (shown === pane ? !pane.gotOutput : !shown.data)}<div class="noout">no output</div>{/if}
   </div>
   {#if pane.status !== 'running'}
     {#if ui.comp && ui.comp.input === inputEl}<Completions />{/if}

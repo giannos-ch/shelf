@@ -29,6 +29,7 @@ export const ui = $state({
   comp: null,
   hsearch: null,           // { input, q } while a history search is open
   hints: null,             // { pane, typed, items } while Ctrl+; o labels links
+  runs: null,              // id of the terminal whose history list is open
   settings: false,         // the settings panel is open
   prefs: { editor: '', theme: 'dark', fontSize: 13, fontFamily: '', cursorStyle: 'block' },   // core.js's SETTINGS, saved in prefsFile
   prefsFile: '',
@@ -75,7 +76,7 @@ function applyPrefs() {
   for (const [k, v] of Object.entries(theme().css)) root.setProperty('--' + k, v);
   if (ui.prefs.fontFamily.trim()) root.setProperty('--font', ui.prefs.fontFamily); else root.removeProperty('--font');
   const opts = termOptions();
-  for (const [id, t] of terms) { Object.assign(t.term.options, opts); refit(id); }
+  for (const [id, t] of terms) { Object.assign(t.term.options, opts); if (t.view) Object.assign(t.view.options, opts); refit(id); }
 }
 applyPrefs();
 darkOS.addEventListener('change', () => ui.prefs.theme === 'system' && applyPrefs());
@@ -112,7 +113,7 @@ function onMessage(m) {
     case 'started': if (p) p.cwd = p.runCwd = m.cwd; break;
     case 'data':
       if (p && !p.gotOutput) p.gotOutput = true;
-      terms.get(m.id)?.term.write(m.data);
+      { const t = terms.get(m.id); if (t) { t.buf += m.data; t.term.write(m.data); } }
       break;
     case 'exit': if (p) { if (m.cwd) p.cwd = m.cwd; finish(p, m.code, m.ms, null, m.typed); } break;
     case 'completions': handlers.completions?.(m); break;
@@ -129,6 +130,9 @@ function finish(p, code, ms, reason = null, typed = '') {
   // The closed list only holds running terminals.
   if (p.closed) return destroy(p);
   const t = terms.get(p.id);
+  // ponytail: each run's raw output is kept whole for the pane's lifetime, capped at 50 runs; trim data if memory matters.
+  p.runs.push({ cmd: p.cmd, cwd: p.runCwd, status: p.status, code, ms: p.ms, reason, data: t?.buf ?? '' });
+  if (p.runs.length > 50) { p.runs.shift(); if (p.viewing != null) p.viewing = p.viewing ? p.viewing - 1 : null; }
   if (t) {
     t.term.options.disableStdin = true;
     t.term.options.cursorBlink = false;
@@ -153,7 +157,7 @@ export async function focusPane(id = activeTab()?.selected) {
   ui.mode = 'pane';
   await tick();
   const p = paneById(id), t = terms.get(id);
-  if (ui.mode === 'pane' && activeTab()?.selected === id) (p?.status === 'running' ? t?.term : t?.input)?.focus();
+  if (ui.mode === 'pane' && activeTab()?.selected === id) (p?.status === 'running' ? shownTerm(id) : t?.input)?.focus();
 }
 
 // After the selected terminal changes or re-renders, keep the keyboard on it (or the prompt if there is none).
@@ -207,7 +211,9 @@ function start(id, cwd) {
   const p = paneById(id), t = terms.get(id);
   if (!p || !t) return;
   try { t.fit.fit(); } catch {}
-  Object.assign(p, { status: 'running', started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  Object.assign(p, { status: 'running', started: Date.now(), gotOutput: false, code: null, ms: null, reason: null, viewing: null });
+  t.buf = '';
+  if (ui.runs === id) ui.runs = null;
   ui.now = Date.now();
   t.term.options.disableStdin = false;
   t.term.options.cursorBlink = true;
@@ -233,7 +239,7 @@ export async function runCommand(cmd, focus = false, inPane = false) {
 
 function addPane(tab, cmd, cwd) {
   const id = 'p' + (++paneSeq);
-  ui.panes.push({ id, tab: tab.id, cmd, cmds: [cmd], cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  ui.panes.push({ id, tab: tab.id, cmd, cmds: [cmd], runs: [], viewing: null, cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
   return id;
 }
 
@@ -320,6 +326,20 @@ export async function runInPane(p, cmd) {
   start(p.id, p.cwd);
 }
 
+// Show an earlier run of a terminal over its own (index into p.runs), or null for its own output.
+// A finished terminal's own output is its last run.
+export function viewRun(p, i) {
+  if (!p || (i != null && !p.runs[i])) return;
+  p.viewing = i === p.runs.length - 1 && p.status !== 'running' ? null : i;
+  if (selected() === p) refocus();   // the terminal that had the keys may be gone or hidden
+}
+// Step back through the selected terminal's runs, wrapping to its own output.
+export function prevRun(p = selected()) {
+  if (!p?.runs.length) return;
+  const i = (p.viewing ?? (p.status === 'running' ? p.runs.length : p.runs.length - 1)) - 1;
+  viewRun(p, i < 0 ? null : i);
+}
+
 const finished = () => L.leaves(activeTab()?.tree).map(paneById).filter((p) => p.status !== 'running' && !p.pinned);
 export function clearFinished() { for (const p of finished()) destroy(p); }
 export function togglePin(p = selected()) { if (p) p.pinned = !p.pinned; }
@@ -378,7 +398,9 @@ export function nudge(side) {
 
 export function equalize() { const tab = activeTab(); if (tab) tab.tree = L.equalize(tab.tree); }
 
-const selTerm = () => terms.get(selected()?.id)?.term;
+// The terminal on screen in a pane: a past run's view, else its own.
+export const shownTerm = (id) => { const t = terms.get(id); return paneById(id)?.viewing != null && t?.view || t?.term; };
+const selTerm = () => shownTerm(selected()?.id);
 export const hasSelection = () => !!selTerm()?.hasSelection();
 export function copySelection() {
   const t = selTerm(), text = t?.getSelection().replace(/\s+$/, '');
