@@ -43,8 +43,8 @@ the program. `F1` lists every shortcut.
 
 - **Prompt** — type commands. `Enter` runs and focuses the new terminal,
   `Ctrl+Enter` runs and stays in the prompt, `Tab` completes, `↑` `↓` history.
-- **Terminals** — click one, or use `Ctrl+←↑→↓`, to type into it (`Ctrl+↓`
-  from the bottom one returns to the prompt, `Ctrl+↑` from the prompt goes
+- **Terminals** — click one, or use `Shift+←↑→↓`, to type into it (`Shift+↓`
+  from the bottom one returns to the prompt, `Shift+↑` from the prompt goes
   back). ``Ctrl+` `` toggles between the prompt and the last terminal,
   `Ctrl+Tab` returns to the previous one. `Ctrl+M` maximizes, `Ctrl+Q` closes,
   `Ctrl+.` runs again. These act on the focused terminal, or on the last one

@@ -29,7 +29,7 @@ function escPanePrompt() {
 
 // The text box keys go to: the main prompt, or a finished terminal's own prompt.
 const promptInput = () => (ui.mode === 'prompt' ? S.els.prompt : running() ? null : S.terms.get(S.selected()?.id)?.input);
-// Ctrl+←/→ move by word in a prompt's text, and to the next terminal from its start / end (always in a running terminal).
+// Shift+←/→ select in a prompt's text, and move to the next terminal from its start / end (always in a running terminal).
 const atEdge = (k) => {
   const el = promptInput(), at = { ArrowLeft: 0, ArrowRight: el?.value.length }[arrowOf(k)];
   return !el || at == null || (el.selectionStart === at && el.selectionEnd === at);
@@ -79,15 +79,15 @@ export const SHORTCUTS = [
   { ctx: 'prompt', label: '↑ ↓ (typing)', desc: 'Select among history matches shown while typing' },
   { ctx: 'prompt', label: 'Shift+Delete', desc: 'Remove the selected history match from history (terminal prompts too)' },
   { ctx: 'prompt', label: '↑ ↓', desc: 'History' },
-  { ctx: 'prompt', label: 'Ctrl+↑', keys: ['Ctrl+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
-  { ctx: 'prompt', label: 'Ctrl+← →', keys: ['Ctrl+ArrowLeft', 'Ctrl+ArrowRight'], when: atEdge, desc: 'Move by word; at the start / end of the text: focus the terminal beside the last one', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
+  { ctx: 'prompt', label: 'Shift+↑', keys: ['Shift+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
+  { ctx: 'prompt', label: 'Shift+← →', keys: ['Shift+ArrowLeft', 'Shift+ArrowRight'], when: atEdge, desc: 'Select text; at the start / end of the text: focus the terminal beside the last one', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
   { ctx: 'prompt', label: 'Ctrl+D', keys: ['Ctrl+KeyD'], desc: 'Delete a character; with no text: close the last terminal', run: deleteOrClose },
   { ctx: 'prompt', label: 'Ctrl+K / U', keys: ['Ctrl+KeyK', 'Ctrl+KeyU'], desc: 'Cut the text after / before the cursor', run: cutLine },
   { ctx: 'prompt', label: '!!', desc: 'In a command: the last command run (sudo !!)' },
   { ctx: 'prompt', label: 'Esc', keys: ['Escape'], when: () => ui.comp || ui.hsearch, desc: 'Close completions or suggestions', run: closeLists },
   { ctx: 'prompt', label: 'Ctrl+L', keys: ['Ctrl+KeyL'], desc: 'Remove finished, unpinned terminals in this tab for good', run: S.clearFinished },
 
-  { ctx: 'pane', label: 'Ctrl+←↑→↓', keys: arrows('Ctrl+'), when: atEdge, desc: 'Focus the terminal in that direction (↓ from the bottom one: the prompt; ← → in a finished terminal’s prompt move by word until its start / end)', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
+  { ctx: 'pane', label: 'Shift+←↑→↓', keys: arrows('Shift+'), when: atEdge, desc: 'Focus the terminal in that direction (↓ from the bottom one: the prompt; ← → in a finished terminal’s prompt select text until its start / end)', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
   { ctx: 'pane', label: 'Ctrl+V', keys: ['Ctrl+KeyV'], when: running, desc: 'Paste text (with no text on the clipboard, ^V goes to the program)', run: () => S.paste() },
   { ctx: 'pane', label: 'Ctrl+Z', keys: ['Ctrl+KeyZ'], when: running, desc: 'Ignored: commands run without job control, so a suspended one could never resume', run: () => {} },
   { ctx: 'pane', label: 'Shift+Home / End', keys: ['Shift+Home', 'Shift+End'], when: running, desc: 'Scroll to the top / bottom', run: (k) => S.scroll(k === 'Shift+Home' ? 'top' : 'bottom') },
