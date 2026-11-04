@@ -67,16 +67,19 @@ export function remove(tree, id) {
   return split(tree.dir, children, sizes.map((s) => s / total));
 }
 
-// Turn pane `id` and its next (else previous) sibling from side by side to stacked, or back.
+// Rotate pane `id` and its next (else previous) sibling a quarter turn counter-clockwise: side by side
+// [a b] becomes stacked [b over a], then [b a], then [a over b]; twice turns them upside down. The pair
+// stays its own split (not merged into a parent of the same direction) so repeating keeps the same pair.
 export function rotate(tree, id) {
+  const turn = (dir, children, sizes) =>
+    dir === 'row' ? { dir: 'col', children: [...children].reverse(), sizes: [...sizes].reverse() } : { dir: 'row', children, sizes };
   const walk = (node) => {
     if (!node.children) return node;
     const i = node.children.findIndex((c) => c.pane === id);
-    if (i < 0) return split(node.dir, node.children.map(walk), node.sizes);
-    const dir = node.dir === 'row' ? 'col' : 'row';
-    if (node.children.length === 2) return split(dir, node.children, node.sizes);
+    if (i < 0) return { ...node, children: node.children.map(walk) };
+    if (node.children.length === 2) return turn(node.dir, node.children, node.sizes);
     const j = Math.min(i, node.children.length - 2), s = node.sizes[j] + node.sizes[j + 1];
-    const pair = split(dir, node.children.slice(j, j + 2), [node.sizes[j] / s, node.sizes[j + 1] / s]);
+    const pair = turn(node.dir, node.children.slice(j, j + 2), [node.sizes[j] / s, node.sizes[j + 1] / s]);
     return {
       ...node,
       children: [...node.children.slice(0, j), pair, ...node.children.slice(j + 2)],

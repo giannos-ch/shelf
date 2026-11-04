@@ -48,15 +48,15 @@ assert.equal(d.side, 'top');
 assert.equal(dropTarget(panes, box, 200, 300, 'a'), null);
 assert.equal(dropTarget(panes, box, 200, 300, 'b').side, 'bottom');
 
-// col[a, row[b, d], c]: b and d stack, merging into the column; then b and d go side by side again.
-const rot = rotate(t, 'b');
-assert.deepEqual(rot.dir, 'col');
-assert.deepEqual(leaves(rot), ['a', 'b', 'd', 'c']);
-assert.equal(rot.children.length, 4);
-const back = rotate(rot, 'b');
-assert.equal(back.children[1].dir, 'row');
-assert.deepEqual(leaves(back.children[1]), ['b', 'd']);
-assert.ok(Math.abs(back.sizes.reduce((x, y) => x + y) - 1) < 1e-9);
+// col[a, row[b, d], c]: counter-clockwise quarter turns of b and d; two make them upside down, four undo.
+const pair = (tree) => ({ dir: tree.children[1].dir, leaves: leaves(tree.children[1]) });
+const r1 = rotate(t, 'b'), r2 = rotate(r1, 'b'), r4 = rotate(rotate(r2, 'b'), 'b');
+assert.deepEqual(pair(r1), { dir: 'col', leaves: ['d', 'b'] });
+assert.deepEqual(pair(r2), { dir: 'row', leaves: ['d', 'b'] });
+assert.deepEqual(r4, t);
+const three = rotate({ dir: 'row', children: [{ pane: 'x' }, { pane: 'y' }, { pane: 'z' }], sizes: [0.5, 0.25, 0.25] }, 'y');
+assert.deepEqual(three.children[1], { dir: 'col', children: [{ pane: 'z' }, { pane: 'y' }], sizes: [0.5, 0.5] });
+near(three.sizes, [0.5, 0.5]);
 assert.deepEqual(rotate({ pane: 'a' }, 'a'), { pane: 'a' });
 
 console.log('layout ok');
