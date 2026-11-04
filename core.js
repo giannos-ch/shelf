@@ -399,15 +399,27 @@ function applyChanges(state, startCwd, startEnv, endCwd, endEnv) {
 const statOf = (f) => fs.promises.stat(f).catch(() => null);
 const gitRoot = (dir) => new Promise((res) =>
   execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 2000 }, (err, out) => res(err ? '' : out.trim())));
-// { branch, ahead, behind, dirty } for the repo `dir` is in, or null outside one.
-const gitStatus = (dir) => new Promise((res) =>
-  execFile('git', ['-C', dir, 'status', '--porcelain=v2', '--branch'], { timeout: 2000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, (err, out) => {
-    if (err) return res(null);
-    const lines = out.split('\n').filter(Boolean);
-    const head = lines.find((l) => l.startsWith('# branch.head '))?.slice(14);
-    const ab = lines.find((l) => l.startsWith('# branch.ab '))?.match(/\+(\d+) -(\d+)/);
-    res({ branch: head, ahead: +(ab?.[1] || 0), behind: +(ab?.[2] || 0), dirty: lines.some((l) => !l.startsWith('#')) });
-  }));
+const gitOut = (dir, args) => new Promise((res) =>
+  execFile('git', ['-C', dir, ...args], { timeout: 2000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, (err, out) => res(err ? null : out)));
+// { root, branch, ahead, behind, dirty, files } for the repo `dir` is in, or null outside one.
+const gitStatus = async (dir) => {
+  const [out, num, root] = await Promise.all([gitOut(dir, ['status', '--porcelain=v2', '--branch']), gitOut(dir, ['diff', '--numstat', '--no-renames', 'HEAD']), gitRoot(dir)]);
+  if (out == null) return null;
+  // Line counts per path, staged and unstaged together; none for binaries, untracked files or before the first commit.
+  const counts = new Map((num || '').split('\n').map((l) => l.split('\t')).filter((f) => f.length === 3 && f[0] !== '-').map(([a, d, p]) => [p, { add: +a, del: +d }]));
+  const lines = out.split('\n').filter(Boolean);
+  const head = lines.find((l) => l.startsWith('# branch.head '))?.slice(14);
+  const ab = lines.find((l) => l.startsWith('# branch.ab '))?.match(/\+(\d+) -(\d+)/);
+  // { xy, path, add?, del? } per changed entry, path relative to root; xy is `git status --short`'s two letters ("??" untracked).
+  const files = lines.filter((l) => !l.startsWith('#')).map((l) => {
+    if (l[0] === '?' || l[0] === '!') return { xy: l[0] + l[0], path: l.slice(2) };
+    const f = l.split(' ');
+    const p = f.slice({ 1: 8, 2: 9, u: 10 }[l[0]]).join(' ').split('\t')[0];
+    return { xy: f[1].replace(/\./g, ' '), path: p, ...counts.get(p) };
+  });
+  // ponytail: capped at 50 so a huge untracked tree doesn't bloat every state message.
+  return { root, branch: head, ahead: +(ab?.[1] || 0), behind: +(ab?.[2] || 0), dirty: files.length > 0, files: files.slice(0, 50), more: Math.max(0, files.length - 50) };
+};
 const shq = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
 
 function which(cmd, env) {

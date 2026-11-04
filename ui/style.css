@@ -200,6 +200,30 @@ kbd {
 #cwd .git .mark { margin-right: 5px; color: var(--ok); }
 #cwd .git.dirty .mark { color: var(--run); }
 #cwd .git .ab { margin-left: 6px; color: var(--text); }
+.gitpop {
+  position: fixed; z-index: 50; min-width: 220px; max-width: min(560px, 90vw); max-height: 50vh; overflow-y: auto;
+  padding: 6px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--pane);
+  box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 12px/1.6 var(--mono);
+}
+.gf {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 0 12px; border: 0; background: none;
+  font: inherit; text-align: left; white-space: nowrap; color: var(--text); cursor: pointer;
+}
+.gf:not(:disabled):hover { background: var(--hover); }
+.gf:disabled { cursor: default; }
+.gf .ic { width: 1ch; text-align: center; font-weight: 700; }
+.gf .p { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gf .dir { color: var(--muted); }
+.gf .n { margin-left: 12px; font-size: 11px; }
+.gf .add { color: var(--ok); }
+.gf .del { color: var(--err); }
+.gf.mod .ic { color: var(--run); }
+.gf.new .ic { color: var(--ok); }
+.gf.new .p { color: var(--ok); }
+.gf.del .ic, .gf.conflict .ic { color: var(--err); }
+.gf.del .p { color: var(--err); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--err) 50%, transparent); }
+.gf.ren .ic { color: var(--accent); }
+.gf.more { color: var(--muted); }
 #prompt textarea {
   flex: 1; resize: none; min-height: 34px; max-height: 180px;
   padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
