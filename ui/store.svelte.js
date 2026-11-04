@@ -449,6 +449,9 @@ export function closeTab(id = ui.active) {
   if (ui.active === id) { ui.active = ui.tabs[Math.max(0, i - 1)].id; refocus(); }
 }
 
+export const tabEmpty = () => !L.leaves(activeTab()?.tree).length;
+export function closeTabOrWindow() { ui.tabs.length === 1 ? window.close() : closeTab(); }
+
 export function moveToTab(p, tabId) {
   const dest = tabById(tabId);
   if (!p || !dest || p.tab === tabId || p.closed) return;

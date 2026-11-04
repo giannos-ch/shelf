@@ -34,10 +34,11 @@ const atEdge = (k) => {
   const el = promptInput(), at = { ArrowLeft: 0, ArrowRight: el?.value.length }[arrowOf(k)];
   return !el || at == null || (el.selectionStart === at && el.selectionEnd === at);
 };
-// Ctrl+D in a prompt: delete the character under the cursor (before it at the end of the text); with no text, close the terminal.
+// Ctrl+D in a prompt: delete the character under the cursor (before it at the end of the text); with no text, close the terminal
+// (in the main prompt of a tab with none: close the tab, or the window if it is the last one).
 function deleteOrClose() {
   const el = promptInput();
-  if (!el?.value) return S.closePane();
+  if (!el?.value) return ui.mode === 'prompt' && S.tabEmpty() ? S.closeTabOrWindow() : S.closePane();
   const { selectionStart: a, selectionEnd: b } = el;
   if (a < b) replaceText(el, a, b, '');
   else if (a < el.value.length) replaceText(el, a, a + 1, '');
@@ -81,7 +82,7 @@ export const SHORTCUTS = [
   { ctx: 'prompt', label: '↑ ↓', desc: 'History' },
   { ctx: 'prompt', label: 'Shift+↑', keys: ['Shift+ArrowUp'], desc: 'Focus the last terminal (or the bottom one)', run: S.focusLast },
   { ctx: 'prompt', label: 'Shift+← →', keys: ['Shift+ArrowLeft', 'Shift+ArrowRight'], when: atEdge, desc: 'Select text; at the start / end of the text: focus the terminal beside the last one', run: (k) => S.focusDir(DIR[arrowOf(k)]) },
-  { ctx: 'prompt', label: 'Ctrl+D', keys: ['Ctrl+KeyD'], desc: 'Delete a character; with no text: close the last terminal', run: deleteOrClose },
+  { ctx: 'prompt', label: 'Ctrl+D', keys: ['Ctrl+KeyD'], desc: 'Delete a character; with no text: close the last terminal (no terminals: close the tab, or the window if it is the last tab)', run: deleteOrClose },
   { ctx: 'prompt', label: 'Ctrl+K / U', keys: ['Ctrl+KeyK', 'Ctrl+KeyU'], desc: 'Cut the text after / before the cursor', run: cutLine },
   { ctx: 'prompt', label: '!!', desc: 'In a command: the last command run (sudo !!)' },
   { ctx: 'prompt', label: 'Esc', keys: ['Escape'], when: () => ui.comp || ui.hsearch, desc: 'Close completions or suggestions', run: closeLists },
