@@ -6,7 +6,7 @@ import { THEMES } from './themes.js';
 // xterm instances live outside $state so they are never proxied.
 export const terms = new Map();   // pane id -> { term, fit, lastSize }
 export const els = { prompt: null, desk: null };
-export const handlers = { completions: null, history: null, stat: null };
+export const handlers = { completions: null, history: null, stat: null, 'git-files': null, 'git-log': null, 'git-show': null };
 
 let paneSeq = 0, tabSeq = 0;
 // `selected` is the focused terminal, or the last one focused while the prompt has focus; `recent` is the focus history.
@@ -119,6 +119,7 @@ function onMessage(m) {
     case 'completions': handlers.completions?.(m); break;
     case 'history': handlers.history?.(m); break;
     case 'stat': handlers.stat?.(m); break;
+    case 'git-files': case 'git-log': case 'git-show': handlers[m.type]?.(m); break;
     case 'settings': ui.prefs = m.settings; ui.prefsFile = m.file; applyPrefs(); break;
     case 'open-pane': if (m.tab === ui.active) runCommand(m.cmd, true, true); break;
     case 'cd': if (!m.ok) runCommand(m.cmd, false, true); break;

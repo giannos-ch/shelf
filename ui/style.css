@@ -174,9 +174,9 @@ kbd {
 }
 .pane.focused .pane-prompt { background: rgba(91,141,239,.06); }
 .xterm .xterm-viewport { background: transparent !important; }
-.xterm-viewport::-webkit-scrollbar, .completions::-webkit-scrollbar, .hlist::-webkit-scrollbar { width: 8px; }
-.xterm-viewport::-webkit-scrollbar-thumb, .completions::-webkit-scrollbar-thumb, .hlist::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 4px; }
-.completions::-webkit-scrollbar-thumb:hover, .hlist::-webkit-scrollbar-thumb:hover { background: var(--thumb-hover); }
+.xterm-viewport::-webkit-scrollbar, .completions::-webkit-scrollbar, .hlist::-webkit-scrollbar, .gitpop ::-webkit-scrollbar, .gitpop::-webkit-scrollbar { width: 8px; }
+.xterm-viewport::-webkit-scrollbar-thumb, .completions::-webkit-scrollbar-thumb, .hlist::-webkit-scrollbar-thumb, .gitpop::-webkit-scrollbar-thumb, .gitpop ::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 4px; }
+.completions::-webkit-scrollbar-thumb:hover, .hlist::-webkit-scrollbar-thumb:hover, .gitpop::-webkit-scrollbar-thumb:hover { background: var(--thumb-hover); }
 
 /* ------------------------------------------------------------- bottom bar */
 #bar { flex: none; border-top: 1px solid var(--line); background: var(--chrome); }
@@ -217,7 +217,7 @@ kbd {
 #cwd .git.dirty .mark { color: var(--run); }
 #cwd .git .ab { margin-left: 6px; color: var(--text); }
 .gitpop {
-  position: fixed; z-index: 50; min-width: 220px; max-width: min(560px, 90vw); max-height: 50vh; overflow-y: auto;
+  position: fixed; z-index: 50; min-width: 220px; max-width: min(560px, 90vw); max-height: 75vh; overflow-y: auto;
   padding: 6px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--pane);
   box-shadow: 0 6px 24px rgba(0,0,0,.35); font: 12px/1.6 var(--mono);
 }
@@ -240,6 +240,32 @@ kbd {
 .gf.del .p { color: var(--err); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--err) 50%, transparent); }
 .gf.ren .ic { color: var(--accent); }
 .gf.more { color: var(--muted); }
+.gh {
+  padding: 6px 12px 2px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.gh:not(:first-child) { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+.gc {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 0 12px; border: 0; background: none;
+  font: inherit; text-align: left; white-space: nowrap; color: var(--text); cursor: pointer;
+}
+.gc:hover, .gc.on { background: var(--hover); }
+.gc .ic { width: 1ch; text-align: center; color: var(--accent); font-weight: 700; }
+.gc .sha, .gitdetail .sha { color: var(--run); }
+.gc .p { flex: 1; min-width: 0; max-width: 380px; overflow: hidden; text-overflow: ellipsis; }
+.gc .when { margin-left: 12px; font-size: 11px; color: var(--muted); }
+.gc.pushed .ic, .gc.pushed .sha { color: var(--muted); }
+.gf.older { color: var(--accent); }
+.gitdetail { width: 420px; max-width: 45vw; }
+.gd-head { padding: 4px 12px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); white-space: normal; }
+.gd-subj { font-weight: 600; color: var(--text); }
+.gd-body { margin: 4px 0 0; font: inherit; color: var(--muted); white-space: pre-wrap; max-height: 8em; overflow-y: auto; }
+.gd-meta { margin-top: 4px; font-size: 11px; color: var(--muted); }
+.gd-acts { display: flex; gap: 6px; margin-top: 8px; }
+.gd-acts button {
+  border: 1px solid var(--line); border-radius: 4px; background: var(--head); color: var(--text);
+  padding: 1px 8px; font: 11.5px var(--mono); cursor: pointer;
+}
+.gd-acts button:hover { border-color: var(--accent); }
 #prompt textarea {
   flex: 1; resize: none; min-height: 34px; max-height: 180px;
   padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;

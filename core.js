@@ -258,6 +258,9 @@ class Session extends EventEmitter {
       case 'run': this.run(msg); break;
       case 'cd': this.cd(msg); break;
       case 'stat': this.stat(msg); break;
+      case 'git-files': gitFiles(this.stateFor(msg.tab).cwd).then((r) => this.emit('message', { type: 'git-files', tab: msg.tab, ...r })); break;
+      case 'git-log': this.gitLog(msg); break;
+      case 'git-show': this.gitShow(msg); break;
       case 'settings-set': saveSettings(msg.settings); break;
       case 'open': this.open(msg); break;
       case 'input': run?.pty.write(String(msg.data)); break;
@@ -340,6 +343,41 @@ class Session extends EventEmitter {
 
   // Opens a file the UI found with stat. The path comes from program output: it only ever becomes one
   // argument of an argv (never shell text), and a terminal editor's command is quoted word by word.
+  // The newest `n` commits on HEAD, each flagged when it isn't on the upstream yet.
+  async gitLog(msg) {
+    const dir = this.stateFor(msg.tab).cwd, n = Math.min(Math.max(msg.n | 0, 1), 500);
+    const [log, ahead] = await Promise.all([
+      gitOut(dir, ['log', '-n', String(n), '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ar']),
+      gitOut(dir, ['rev-list', '@{upstream}..HEAD']),
+    ]);
+    const unpushed = new Set((ahead || '').split('\n'));
+    const commits = (log || '').split('\n').filter(Boolean).map((l) => {
+      const [sha, short, subject, author, when] = l.split('\x1f');
+      return { sha, short, subject, author, when, unpushed: unpushed.has(sha) };
+    });
+    this.emit('message', { type: 'git-log', tab: msg.tab, commits, more: commits.length === n });
+  }
+
+  // One commit's message, author, date and changed files ({ xy, path, add?, del? }, as in gitStatus).
+  async gitShow(msg) {
+    const sha = String(msg.sha || '');
+    if (!/^[0-9a-f]{7,40}$/.test(sha)) return;
+    const dir = this.stateFor(msg.tab).cwd, diff = ['show', '--no-renames', '--diff-merges=first-parent', sha];
+    const [head, num, names] = await Promise.all([
+      gitOut(dir, ['show', '-s', '--format=%an <%ae>%x1f%ad%x1f%B', '--date=format-local:%Y-%m-%d %H:%M', sha]),
+      gitOut(dir, [...diff, '--format=', '--numstat']),
+      gitOut(dir, [...diff, '--format=', '--name-status']),
+    ]);
+    if (head == null) return;
+    const [author, date, body] = head.split('\x1f');
+    const counts = numstat(num);
+    const files = (names || '').split('\n').filter(Boolean).map((l) => {
+      const [st, p] = l.split('\t');
+      return { xy: st[0] + ' ', path: p, ...counts.get(p) };
+    });
+    this.emit('message', { type: 'git-show', tab: msg.tab, sha, author, date, body: body.trim(), files });
+  }
+
   open(msg) {
     const abs = String(msg.abs ?? '');
     let st;
@@ -399,26 +437,35 @@ function applyChanges(state, startCwd, startEnv, endCwd, endEnv) {
 const statOf = (f) => fs.promises.stat(f).catch(() => null);
 const gitRoot = (dir) => new Promise((res) =>
   execFile('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 2000 }, (err, out) => res(err ? '' : out.trim())));
+// `git --numstat` output → Map(path → { add, del }); binaries (and untracked files) get no entry.
+const numstat = (out) => new Map((out || '').split('\n').map((l) => l.split('\t')).filter((f) => f.length === 3 && f[0] !== '-').map(([a, d, p]) => [p, { add: +a, del: +d }]));
 const gitOut = (dir, args) => new Promise((res) =>
   execFile('git', ['-C', dir, ...args], { timeout: 2000, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }, (err, out) => res(err ? null : out)));
-// { root, branch, ahead, behind, dirty, files } for the repo `dir` is in, or null outside one.
+const STATUS = ['status', '--porcelain=v2', '--branch'];
+const changed = (out) => out.split('\n').filter((l) => l && !l.startsWith('#'));
+// { branch, ahead, behind, dirty } for the repo `dir` is in, or null outside one. Polled, so one git call.
 const gitStatus = async (dir) => {
-  const [out, num, root] = await Promise.all([gitOut(dir, ['status', '--porcelain=v2', '--branch']), gitOut(dir, ['diff', '--numstat', '--no-renames', 'HEAD']), gitRoot(dir)]);
+  const out = await gitOut(dir, STATUS);
   if (out == null) return null;
-  // Line counts per path, staged and unstaged together; none for binaries, untracked files or before the first commit.
-  const counts = new Map((num || '').split('\n').map((l) => l.split('\t')).filter((f) => f.length === 3 && f[0] !== '-').map(([a, d, p]) => [p, { add: +a, del: +d }]));
-  const lines = out.split('\n').filter(Boolean);
-  const head = lines.find((l) => l.startsWith('# branch.head '))?.slice(14);
-  const ab = lines.find((l) => l.startsWith('# branch.ab '))?.match(/\+(\d+) -(\d+)/);
-  // { xy, path, add?, del? } per changed entry, path relative to root; xy is `git status --short`'s two letters ("??" untracked).
-  const files = lines.filter((l) => !l.startsWith('#')).map((l) => {
+  const head = out.match(/^# branch\.head (.*)$/m)?.[1];
+  const ab = out.match(/^# branch\.ab \+(\d+) -(\d+)$/m);
+  return { branch: head, ahead: +(ab?.[1] || 0), behind: +(ab?.[2] || 0), dirty: changed(out).length > 0 };
+};
+// { root, files, more } for the git popup, fetched only while it's open: { xy, path, add?, del? } per changed
+// entry, path relative to root; xy is `git status --short`'s two letters ("??" untracked).
+const gitFiles = async (dir) => {
+  const [out, num, root] = await Promise.all([gitOut(dir, STATUS), gitOut(dir, ['diff', '--numstat', '--no-renames', 'HEAD']), gitRoot(dir)]);
+  if (out == null) return null;
+  // Staged and unstaged together; no counts before the first commit.
+  const counts = numstat(num);
+  const files = changed(out).map((l) => {
     if (l[0] === '?' || l[0] === '!') return { xy: l[0] + l[0], path: l.slice(2) };
     const f = l.split(' ');
     const p = f.slice({ 1: 8, 2: 9, u: 10 }[l[0]]).join(' ').split('\t')[0];
     return { xy: f[1].replace(/\./g, ' '), path: p, ...counts.get(p) };
   });
-  // ponytail: capped at 50 so a huge untracked tree doesn't bloat every state message.
-  return { root, branch: head, ahead: +(ab?.[1] || 0), behind: +(ab?.[2] || 0), dirty: files.length > 0, files: files.slice(0, 50), more: Math.max(0, files.length - 50) };
+  // ponytail: capped at 50 so a huge untracked tree doesn't bloat the reply.
+  return { root, files: files.slice(0, 50), more: Math.max(0, files.length - 50) };
 };
 const shq = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
 
