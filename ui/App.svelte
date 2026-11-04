@@ -18,6 +18,8 @@
   const px = (r) => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
 
   onMount(() => { els.desk = desk; init(); focusPrompt(); });   // not $effect: init reads ui.tabs, so a new tab would re-run it (hello resets every tab)
+  // Core polls git only for the tab on screen; re-sent on reconnect too.
+  $effect(() => { if (ui.connected) send({ type: 'tab-active', tab: ui.active }); });
   $effect(() => { document.title = `${tilde(tab?.cwd || '')} — Shelf`; });
   $effect(() => { if (ui.mode === 'side' && ui.sideSel) document.querySelector('.closed-item.sel')?.scrollIntoView({ block: 'nearest' }); });
 </script>

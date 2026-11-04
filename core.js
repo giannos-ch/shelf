@@ -219,10 +219,12 @@ class Session extends EventEmitter {
     this.runs = new Map();
     this.emitSettings = () => this.emit('message', { type: 'settings', settings, file: SETTINGS_FILE });
     settingsBus.on('change', this.emitSettings);
-    // Re-check each tab's git status so outside edits, commits and checkouts show up.
+    // Re-check the active tab's git status so outside edits, commits and checkouts show up; other tabs
+    // refresh when they become active (`tab-active`).
     // ponytail: fixed 3s poll; watch .git + the work tree instead if it costs too much in huge repos.
     this.sent = new Map();
-    this.poll = setInterval(() => { for (const t of this.tabs.keys()) if (t) this.emitState(t, true); }, 3000);
+    this.active = null;
+    this.poll = setInterval(() => { if (this.active) this.emitState(this.active, true); }, 3000);
   }
 
   get runningCount() { return this.runs.size; }
@@ -258,6 +260,7 @@ class Session extends EventEmitter {
       case 'run': this.run(msg); break;
       case 'cd': this.cd(msg); break;
       case 'stat': this.stat(msg); break;
+      case 'tab-active': this.active = String(msg.tab ?? ''); this.emitState(this.active, true); break;
       case 'git-files': gitFiles(this.stateFor(msg.tab).cwd).then((r) => this.emit('message', { type: 'git-files', tab: msg.tab, ...r })); break;
       case 'git-log': this.gitLog(msg); break;
       case 'git-show': this.gitShow(msg); break;
