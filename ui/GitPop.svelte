@@ -1,6 +1,6 @@
 <script>
   // Hover popup on the git pill: changed files, then commits (unpushed first, older on request);
-  // hovering a commit opens a second popup beside it with its files and actions, hovering a changed file one with its diff.
+  // hovering a commit opens a second popup beside it with its files and actions, hovering a file (changed, or in that commit) one with its diff.
   // Both are fixed-positioned because #cwd clips its overflow.
   import { send } from './conn.js';
   import { ui, handlers, activeTab, runCommand } from './store.svelte.js';
@@ -8,7 +8,7 @@
   const git = $derived(activeTab()?.git);
   let pos = $state(null), older = $state(0), log = $state(null), files = $state(null), detail = $state(null), diff = $state(null), copied = $state(false);
   const shown = {};   // sha → git-show reply
-  let timer, box;
+  let timer, box, detailBox;
 
   // Closing waits a moment so the pointer can cross the gaps between pill and popups.
   const keep = () => clearTimeout(timer);
@@ -28,7 +28,7 @@
   $effect(() => { if (want) send({ type: 'git-log', tab: ui.active, n: want, head: git.branch }); });
   handlers['git-files'] = (m) => { if (pos && m.tab === ui.active) files = m; };
   handlers['git-log'] = (m) => { if (pos && m.tab === ui.active) log = m; };
-  handlers['git-diff'] = (m) => { if (diff?.path === m.path) diff = { ...diff, info: m }; };
+  handlers['git-diff'] = (m) => { if (diff?.path === m.path && diff.sha === m.sha) diff = { ...diff, info: m }; };
   handlers['git-show'] = (m) => { shown[m.sha] = m; if (detail?.sha === m.sha) detail = { ...detail, info: m }; };
 
   // Switches (or clears) only once the pointer rests on a row, so a diagonal move toward the
@@ -40,17 +40,18 @@
     if (!detail) showCommit(c, r); else intent = setTimeout(() => showCommit(c, r), 150);
   }
   const clearSoon = () => { clearTimeout(intent); intent = setTimeout(() => (detail = diff = null), 150); };
-  const beside = (r) => ({ left: box.getBoundingClientRect().right + 4, bottom: innerHeight - r.bottom - 6, maxH: r.bottom - 8 });
-  function hoverFile(f, e) {
+  const beside = (r, el = box) => ({ left: el.getBoundingClientRect().right + 4, bottom: innerHeight - r.bottom - 6, maxH: r.bottom - 8 });
+  // `sha` set: a file of the open commit, whose diff opens beside the commit popup, which stays.
+  function hoverFile(f, e, sha) {
     clearTimeout(intent);
-    if (f.path.endsWith('/')) return clearSoon();
+    if (f.path.endsWith('/')) return sha ? (intent = setTimeout(() => (diff = null), 150)) : clearSoon();
     const r = e.currentTarget.getBoundingClientRect();
     const showDiff = () => {
-      detail = null;
-      diff = { path: f.path, ...beside(r) };
-      send({ type: 'git-diff', tab: ui.active, path: f.path, untracked: f.xy === '??' });
+      if (!sha) detail = null;
+      diff = { path: f.path, sha, ...beside(r, sha ? detailBox : box) };
+      send({ type: 'git-diff', tab: ui.active, path: f.path, sha, untracked: f.xy === '??' });
     };
-    if (!detail && !diff) showDiff(); else intent = setTimeout(showDiff, 150);
+    if (!(sha ? diff : detail || diff)) showDiff(); else intent = setTimeout(showDiff, 150);
   }
   function showCommit(c, r) {
     copied = false;
@@ -108,8 +109,8 @@
 
 {#if pos && detail}
   {@const info = detail.info}
-  <div class="gitpop gitdetail" role="menu" tabindex="-1" style:left="{detail.left}px" style:bottom="{Math.max(detail.bottom, 8)}px" style:max-height="{detail.maxH}px" onmouseenter={() => { keep(); clearTimeout(intent); }} onmouseleave={hide}>
-    <div class="gd-head">
+  <div class="gitpop gitdetail" role="menu" tabindex="-1" bind:this={detailBox} style:left="{detail.left}px" style:bottom="{Math.max(detail.bottom, 8)}px" style:max-height="{detail.maxH}px" onmouseenter={() => { keep(); clearTimeout(intent); }} onmouseleave={hide}>
+    <div class="gd-head" role="none" onmouseenter={() => { clearTimeout(intent); intent = setTimeout(() => (diff = null), 150); }}>
       <div class="gd-subj">{detail.c.subject}</div>
       {#if info?.body && info.body !== detail.c.subject}<pre class="gd-body">{info.body.slice(detail.c.subject.length).trim()}</pre>{/if}
       <div class="gd-meta"><span class="sha">{detail.sha.slice(0, 12)}</span> · {info?.author ?? detail.c.author} · {info?.date ?? detail.c.when}</div>
@@ -120,7 +121,9 @@
     </div>
     {#if !info}<div class="gf more">Loading…</div>
     {:else}
-      {#each info.files.slice(0, 100) as f}{@render fileRow(f, () => files && run(`git show ${detail.sha} -- ${shq(files.root + '/' + f.path)}`))}{/each}
+      {#each info.files.slice(0, 100) as f}
+        <div role="none" onmouseenter={(e) => hoverFile(f, e, detail.sha)} onmouseleave={() => clearTimeout(intent)}>{@render fileRow(f, () => files && run(`git show ${detail.sha} -- ${shq(files.root + '/' + f.path)}`))}</div>
+      {/each}
       {#if info.files.length > 100}<div class="gf more">… {info.files.length - 100} more</div>{/if}
       {#if !info.files.length}<div class="gf more">No file changes</div>{/if}
     {/if}

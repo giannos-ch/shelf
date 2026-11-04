@@ -382,16 +382,17 @@ class Session extends EventEmitter {
     this.emit('message', { type: 'git-show', tab: msg.tab, sha, author, date, body: body.trim(), files });
   }
 
-  // One changed file's working-tree diff against HEAD (untracked: against nothing), hunks only.
+  // One file's diff, hunks only: in commit `sha` if given, else the working tree against HEAD
+  // (untracked: against nothing).
   async gitDiff(msg) {
-    const rel = String(msg.path || ''), root = await gitRoot(this.stateFor(msg.tab).cwd);
-    if (!root || !path.resolve(root, rel).startsWith(root + path.sep)) return;
-    const out = msg.untracked
-      ? await gitOut(root, ['diff', '--no-index', '--', '/dev/null', rel], true)
+    const rel = String(msg.path || ''), sha = msg.sha && String(msg.sha), root = await gitRoot(this.stateFor(msg.tab).cwd);
+    if (!root || !path.resolve(root, rel).startsWith(root + path.sep) || (sha && !/^[0-9a-f]{7,40}$/.test(sha))) return;
+    const out = sha ? await gitOut(root, ['show', '--no-renames', '--diff-merges=first-parent', '--format=', sha, '--', rel])
+      : msg.untracked ? await gitOut(root, ['diff', '--no-index', '--', '/dev/null', rel], true)
       : await gitOut(root, ['diff', 'HEAD', '--', rel]);
     const lines = (out || '').trimEnd().split('\n'), at = lines.findIndex((l) => l.startsWith('@@'));
     // ponytail: capped at 500 lines; the click still opens the whole file.
-    this.emit('message', { type: 'git-diff', tab: msg.tab, path: rel, lines: at < 0 ? [] : lines.slice(at, at + 500), more: at >= 0 && lines.length - at > 500 });
+    this.emit('message', { type: 'git-diff', tab: msg.tab, path: rel, sha, lines: at < 0 ? [] : lines.slice(at, at + 500), more: at >= 0 && lines.length - at > 500 });
   }
 
   open(msg) {
