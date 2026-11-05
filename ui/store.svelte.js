@@ -334,12 +334,14 @@ export function viewRun(p, i) {
   p.viewing = i === p.runs.length - 1 && p.status !== 'running' ? null : i;
   if (selected() === p) refocus();   // the terminal that had the keys may be gone or hidden
 }
-// Step back through the selected terminal's runs, wrapping to its own output.
-export function prevRun(p = selected()) {
+// Move through the selected terminal's runs: -1 older, +1 newer (p.runs.length is the running command's live terminal).
+export function stepRun(d, p = selected()) {
   if (!p?.runs.length) return;
-  const i = (p.viewing ?? (p.status === 'running' ? p.runs.length : p.runs.length - 1)) - 1;
-  viewRun(p, i < 0 ? null : i);
+  const last = p.status === 'running' ? p.runs.length : p.runs.length - 1;
+  const i = Math.max(0, Math.min(last, (p.viewing ?? last) + d));
+  viewRun(p, i === p.runs.length ? null : i);
 }
+export function openRuns(p = selected()) { if (p?.runs.length) ui.runs = p.id; }
 
 const finished = () => L.leaves(activeTab()?.tree).map(paneById).filter((p) => p.status !== 'running' && !p.pinned);
 export function clearFinished() { for (const p of finished()) destroy(p); }

@@ -35,6 +35,8 @@
   ]);
   const onScreen = $derived(pane.viewing ?? (pane.status === 'running' ? null : pane.runs.length - 1));
   function pick(i) { ui.runs = null; viewRun(pane, i); }
+  let runsEl = $state();
+  $effect(() => { onScreen; runsEl?.querySelector('.on')?.scrollIntoView({ block: 'nearest' }); });
 
   // xterm's defaults warn (OSC 8 confirm, blank-window trick Electron denies); open directly.
   // In Electron, main.js's setWindowOpenHandler hands the URL to the system browser.
@@ -145,9 +147,9 @@
     </span>
   </header>
   {#if menuOpen}
-    <ul class="runs">
+    <ul class="runs" bind:this={runsEl}>
       {#each rows as { r, i } (i ?? 'live')}
-        <li><button class:on={onScreen === i} title={r.cmd} onclick={() => pick(i)}>
+        <li><button class:on={onScreen === i} title={r.cmd} onmouseenter={() => viewRun(pane, i)} onclick={() => pick(i)}>
           <span class="dot {r.status}"></span>
           <span class="cmd">{oneLine(r.cmd)}</span>
           <span class="meta">{fmtDur(r === pane ? Math.max(0, ui.now - pane.started) : r.ms)}{#if runBadge(r)}{' · '}<span class="code">{runBadge(r)}</span>{/if}</span>
