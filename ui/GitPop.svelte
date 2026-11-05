@@ -21,9 +21,9 @@
     pos = { left: r.left, bottom: innerHeight - r.top + 6 };
   }
 
-  // Changed files (with line counts) and the unpushed commits plus `older` more, fetched only while
+  // Changed files (with line counts) and the unpushed commits (at least 5) plus `older` more, fetched only while
   // open; the effect re-runs whenever the tab's git state changes, so both follow the pill.
-  const want = $derived(pos && git ? git.ahead + older : 0);
+  const want = $derived(pos && git ? Math.max(git.ahead, 5) + older : 0);
   $effect(() => { if (pos && git) send({ type: 'git-files', tab: ui.active }); });
   $effect(() => { if (want) send({ type: 'git-log', tab: ui.active, n: want, head: git.branch }); });
   handlers['git-files'] = (m) => { if (pos && m.tab === ui.active) files = m; };
@@ -93,15 +93,14 @@
       {#if !files}<div class="gf more">Loading…</div>{/if}
       {#if files?.more}<div class="gf more">… {files.more} more</div>{/if}
     {/if}
-    <div class="gh" role="none" onmouseenter={clearSoon}>{git.ahead ? `Unpushed commits · ${git.ahead}` : 'Commits'}</div>
+    <div class="gh" role="none" onmouseenter={clearSoon}>{git.ahead ? `Commits · ${git.ahead} unpushed` : 'Commits'}</div>
     {#each log?.commits ?? [] as c (c.sha)}
       <button class="gc" class:pushed={!c.unpushed} class:on={detail?.sha === c.sha} role="menuitem" onpointerdown={nodown}
         onmouseenter={(e) => hoverCommit(c, e)} onmouseleave={() => clearTimeout(intent)} onclick={() => run('git show ' + c.sha)}>
         <span class="ic">{c.unpushed ? '↑' : '•'}</span><span class="sha">{c.short}</span><span class="p">{c.subject}</span><span class="when">{c.when}</span>
       </button>
     {/each}
-    {#if !git.ahead && !older}<div class="gf more">Nothing unpushed</div>{/if}
-    {#if !log || log.more || !want}
+    {#if !log || log.more}
       <button class="gf older" role="menuitem" onpointerdown={nodown} onmouseenter={clearSoon} onclick={() => (older += 10)}>Show older commits…</button>
     {/if}
   </div>
