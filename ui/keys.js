@@ -114,6 +114,7 @@ export const SHORTCUTS = [
   { ctx: 'layer', label: 'p', keys: ['KeyP'], hint: 'pin', desc: 'Pin / unpin (pinned terminals survive l and Ctrl+L)', run: () => S.togglePin() },
   { ctx: 'layer', label: 'o', keys: ['KeyO'], hint: 'open link', desc: 'Label the file links in the terminal; type a label to open it (Esc cancels)', run: () => showHints() },
   { ctx: 'layer', label: 'h', keys: ['KeyH'], hint: 'history', desc: 'Open the terminal’s history list', run: () => S.openRuns() },
+  { ctx: 'layer', label: 'g', keys: ['KeyG'], hint: 'git', desc: 'Open the git popup', run: () => (ui.gitpop = true) },
   { ctx: 'layer', label: 'a', keys: ['KeyA'], hint: 'select all', desc: 'Select all output (then Ctrl+C copies)', run: S.selectAll },
   { ctx: 'layer', label: 'l', keys: ['KeyL'], hint: 'remove finished', desc: 'Remove finished, unpinned terminals in this tab', run: S.clearFinished },
   ...(platform ? [{ ctx: 'layer', label: 'n', keys: ['KeyN'], hint: 'new window', desc: 'New window', run: S.newWindow }] : []),
@@ -123,6 +124,11 @@ export const SHORTCUTS = [
 
   { ctx: 'runs', label: '↑ ↓', keys: ['ArrowUp', 'ArrowDown'], desc: 'Select a newer / older run and show its output', run: (k) => S.stepRun(k === 'ArrowUp' ? 1 : -1) },
   { ctx: 'runs', label: 'Enter / Esc', keys: ['Enter', 'Escape'], desc: 'Close the list, keeping the selected run on screen', run: () => (ui.runs = null) },
+
+  { ctx: 'git', label: '↑ ↓', desc: 'Select a row (in a diff: scroll it)' },
+  { ctx: 'git', label: '→', desc: 'Open the commit’s or file’s popup beside it' },
+  { ctx: 'git', label: 'Enter', desc: 'Same as clicking the row' },
+  { ctx: 'git', label: '← / Esc', desc: 'Close the last popup' },
 
   { ctx: 'side', label: '↑ ↓', keys: ['ArrowUp', 'ArrowDown'], desc: 'Select a closed terminal', run: (k) => S.sideMove(k === 'ArrowUp' ? -1 : 1) },
   { ctx: 'side', label: 'Enter', keys: ['Enter'], desc: 'Reopen it', run: () => S.sideAct(S.reopen) },
@@ -148,6 +154,7 @@ export function onKeydown(e) {
     return;
   }
   if (ui.hints) { consume(e); hintKey(e); return; }
+  if (ui.gitpop) { consume(e); S.handlers['git-key']?.(k); return; }
   const rk = ui.runs && find('runs', k);
   if (rk) { consume(e); rk.run(k); return; }
   if (ui.layer) {

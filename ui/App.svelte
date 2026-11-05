@@ -14,7 +14,7 @@
   const tab = $derived(activeTab());
   const layout = $derived(layoutOf(tab));
   const closed = $derived(closedPanes());
-  const SECTIONS = [['any', 'Anywhere'], ['prompt', 'Prompt'], ['pane', 'Pane'], ['layer', 'Command layer (Ctrl+; then…)'], ['runs', 'History list (Ctrl+; h)'], ['side', 'Closed list']];
+  const SECTIONS = [['any', 'Anywhere'], ['prompt', 'Prompt'], ['pane', 'Pane'], ['layer', 'Command layer (Ctrl+; then…)'], ['runs', 'History list (Ctrl+; h)'], ['git', 'Git popup (Ctrl+; g)'], ['side', 'Closed list']];
   const px = (r) => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
 
   onMount(() => { els.desk = desk; init(); focusPrompt(); });   // not $effect: init reads ui.tabs, so a new tab would re-run it (hello resets every tab)

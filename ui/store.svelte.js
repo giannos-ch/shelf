@@ -6,7 +6,7 @@ import { THEMES } from './themes.js';
 // xterm instances live outside $state so they are never proxied.
 export const terms = new Map();   // pane id -> { term, fit, lastSize }
 export const els = { prompt: null, desk: null };
-export const handlers = { completions: null, history: null, stat: null, 'git-files': null, 'git-log': null, 'git-show': null, 'git-diff': null };
+export const handlers = { completions: null, history: null, stat: null, 'git-files': null, 'git-log': null, 'git-show': null, 'git-diff': null, 'git-key': null };
 
 let paneSeq = 0, tabSeq = 0;
 // `selected` is the focused terminal, or the last one focused while the prompt has focus; `recent` is the focus history.
@@ -30,6 +30,7 @@ export const ui = $state({
   hsearch: null,           // { input, q } while a history search is open
   hints: null,             // { pane, typed, items } while Ctrl+; o labels links
   runs: null,              // id of the terminal whose history list is open
+  gitpop: false,           // the git popup is open from Ctrl+; g and takes the keys
   settings: false,         // the settings panel is open
   prefs: { editor: '', theme: 'dark', fontSize: 13, fontFamily: '', cursorStyle: 'block' },   // core.js's SETTINGS, saved in prefsFile
   prefsFile: '',

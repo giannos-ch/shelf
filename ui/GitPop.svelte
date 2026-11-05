@@ -2,17 +2,19 @@
   // Hover popup on the git pill: changed files, then commits (unpushed first, older on request);
   // hovering a commit opens a second popup beside it with its files and actions, hovering a file (changed, or in that commit) one with its diff.
   // Both are fixed-positioned because #cwd clips its overflow.
+  import { untrack } from 'svelte';
   import { send } from './conn.js';
   import { ui, handlers, activeTab, runCommand } from './store.svelte.js';
 
   const git = $derived(activeTab()?.git);
   let pos = $state(null), older = $state(0), log = $state(null), files = $state(null), detail = $state(null), diff = $state(null), copied = $state(false);
   const shown = {};   // sha → git-show reply
-  let timer, box, detailBox;
+  let timer, box, detailBox, diffBox;
+  let sel = $state(0), dsel = $state(0);   // keyboard rows (Ctrl+; g) in the main and commit popups
 
   // Closing waits a moment so the pointer can cross the gaps between pill and popups.
   const keep = () => clearTimeout(timer);
-  const close = () => { clearTimeout(intent); pos = detail = diff = log = files = null; older = 0; };
+  const close = () => { clearTimeout(intent); pos = detail = diff = log = files = null; older = 0; ui.gitpop = false; };
   export const hide = () => { timer = setTimeout(close, 200); };
   export function show(anchor) {
     keep();
@@ -23,6 +25,7 @@
 
   // Changed files (with line counts) and the unpushed commits (at least 5) plus `older` more, fetched only while
   // open; the effect re-runs whenever the tab's git state changes, so both follow the pill.
+  const nf = $derived(git?.dirty ? files?.files.length ?? 0 : 0);
   const want = $derived(pos && git ? Math.max(git.ahead, 5) + older : 0);
   $effect(() => { if (pos && git) send({ type: 'git-files', tab: ui.active }); });
   $effect(() => { if (want) send({ type: 'git-log', tab: ui.active, n: want, head: git.branch }); });
@@ -61,6 +64,38 @@
     if (!detail.info) send({ type: 'git-show', tab: ui.active, sha: c.sha });
   }
 
+  // Keyboard: rows are the popup's menuitems, in render order (changed files, commits, older; or the commit's files).
+  $effect(() => {
+    if (ui.gitpop) untrack(() => {
+      const pill = document.querySelector('#cwd .git');
+      if (!pill || !git) return void (ui.gitpop = false);
+      sel = dsel = 0;
+      show(pill);
+    });
+  });
+  const items = (el) => [...(el?.querySelectorAll('[role=menuitem]') ?? [])];
+  handlers['git-key'] = (k) => {
+    if (diff) {
+      if (k === 'ArrowUp' || k === 'ArrowDown') diffBox?.scrollBy(0, (k === 'ArrowUp' ? -3 : 3) * 19);
+      else if (k === 'ArrowLeft' || k === 'Escape') diff = null;
+      return;
+    }
+    const rows = items(detail ? detailBox : box), i = detail ? dsel : sel;
+    if (k === 'ArrowUp' || k === 'ArrowDown') {
+      const n = Math.max(0, Math.min(rows.length - 1, i + (k === 'ArrowUp' ? -1 : 1)));
+      if (detail) dsel = n; else sel = n;
+      rows[n]?.scrollIntoView({ block: 'nearest' });
+    } else if (k === 'Enter') rows[i]?.click();
+    else if (k === 'ArrowLeft' || k === 'Escape') { if (detail) detail = null; else close(); }
+    else if (k === 'ArrowRight' && rows[i]) {
+      const r = rows[i].getBoundingClientRect();
+      if (detail) { const f = detail.info?.files[i]; if (f && !f.path.endsWith('/')) openDiff(f, r, detail.sha); return; }
+      const fs = git.dirty ? files?.files ?? [] : [], c = log?.commits[i - fs.length];
+      if (i < fs.length) { if (!fs[i].path.endsWith('/')) openDiff(fs[i], r); }
+      else if (c) { showCommit(c, r); dsel = 0; }
+    }
+  };
+
   const shq = (s) => (/^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
   const run = (cmd) => { close(); runCommand(cmd, true, true); };
   function copyHash() {
@@ -75,10 +110,10 @@
   const nodown = (e) => e.preventDefault();   // keep focus where it is
 </script>
 
-{#snippet fileRow(f, onclick, disabled)}
+{#snippet fileRow(f, onclick, disabled, kb)}
   {@const [k, icon] = kind(f.xy)}
   {@const [dir, base] = split(f.path)}
-  <button class="gf {k}" role="menuitem" {disabled} onpointerdown={nodown} {onclick}>
+  <button class="gf {k}" class:kb role="menuitem" {disabled} onpointerdown={nodown} {onclick}>
     <span class="ic">{icon}</span><span class="p"><span class="dir">{dir}</span>{base}</span>
     {#if f.add || f.del}<span class="n">{#if f.add}<span class="add">+{f.add}</span>{/if} {#if f.del}<span class="del">−{f.del}</span>{/if}</span>{/if}
   </button>
@@ -88,23 +123,23 @@
   <div class="gitpop" role="menu" tabindex="-1" bind:this={box} style:left="{pos.left}px" style:bottom="{pos.bottom}px" onmouseenter={keep} onmouseleave={hide}>
     {#if git.dirty}
       <div class="gh" role="none" onmouseenter={clearSoon}>Changes</div>
-      {#each files?.files ?? [] as f}
-        <div role="none" onmouseenter={(e) => hoverFile(f, e)} onmouseleave={() => clearTimeout(intent)}>{@render fileRow(f, () => openFile(f), kind(f.xy)[0] === 'del')}</div>
+      {#each files?.files ?? [] as f, j}
+        <div role="none" onmouseenter={(e) => hoverFile(f, e)} onmouseleave={() => clearTimeout(intent)}>{@render fileRow(f, () => openFile(f), kind(f.xy)[0] === 'del', ui.gitpop && !detail && sel === j)}</div>
       {/each}
       {#if !files}<div class="gf more">Loading…</div>{/if}
       {#if files?.more}<div class="gf more">… {files.more} more</div>{/if}
     {/if}
     <div class="gh" role="none" onmouseenter={clearSoon}>{git.ahead ? `Commits · ${git.ahead} unpushed` : 'Commits'}</div>
     <div class="gcs" role="none">
-    {#each log?.commits ?? [] as c (c.sha)}
-      <button class="gc" class:local={c.local} class:on={detail?.sha === c.sha} role="menuitem" onpointerdown={nodown}
+    {#each log?.commits ?? [] as c, j (c.sha)}
+      <button class="gc" class:local={c.local} class:on={detail?.sha === c.sha} class:kb={ui.gitpop && !detail && sel === nf + j} role="menuitem" onpointerdown={nodown}
         onmouseenter={(e) => hoverCommit(c, e)} onmouseleave={() => clearTimeout(intent)} onclick={() => run('git show ' + c.sha)}>
         <span class="ic"></span><span class="sha">{c.short}</span><span class="p">{c.subject}</span><span class="when">{c.when}</span>
       </button>
     {/each}
     </div>
     {#if !log || log.more}
-      <button class="gf older" role="menuitem" onpointerdown={nodown} onmouseenter={clearSoon} onclick={() => (older += 10)}>Show older commits…</button>
+      <button class="gf older" class:kb={ui.gitpop && !detail && sel === nf + (log?.commits.length ?? 0)} role="menuitem" onpointerdown={nodown} onmouseenter={clearSoon} onclick={() => (older += 10)}>Show older commits…</button>
     {/if}
   </div>
 {/if}
@@ -122,8 +157,8 @@
     </div>
     {#if !info}<div class="gf more">Loading…</div>
     {:else}
-      {#each info.files.slice(0, 100) as f}
-        <div role="none" onmouseenter={(e) => hoverFile(f, e, detail.sha)} onmouseleave={() => clearTimeout(intent)}>{@render fileRow(f, () => files && run(`git show ${detail.sha} -- ${shq(files.root + '/' + f.path)}`))}</div>
+      {#each info.files.slice(0, 100) as f, j}
+        <div role="none" onmouseenter={(e) => hoverFile(f, e, detail.sha)} onmouseleave={() => clearTimeout(intent)}>{@render fileRow(f, () => files && run(`git show ${detail.sha} -- ${shq(files.root + '/' + f.path)}`), false, ui.gitpop && !diff && dsel === j)}</div>
       {/each}
       {#if info.files.length > 100}<div class="gf more">… {info.files.length - 100} more</div>{/if}
       {#if !info.files.length}<div class="gf more">No file changes</div>{/if}
@@ -132,7 +167,7 @@
 {/if}
 
 {#if pos && diff}
-  <div class="gitpop gitdiff" role="none" style:left="{diff.left}px" style:bottom="{Math.max(diff.bottom, 8)}px" style:max-height="{diff.maxH}px" onmouseenter={() => { keep(); clearTimeout(intent); }} onmouseleave={hide}>
+  <div class="gitpop gitdiff" role="none" bind:this={diffBox} style:left="{diff.left}px" style:bottom="{Math.max(diff.bottom, 8)}px" style:max-height="{diff.maxH}px" onmouseenter={() => { keep(); clearTimeout(intent); }} onmouseleave={hide}>
     <div class="gd-head"><div class="gd-subj">{diff.path}</div></div>
     {#if !diff.info}<div class="gf more">Loading…</div>
     {:else if !diff.info.lines.length}<div class="gf more">No diff to show</div>

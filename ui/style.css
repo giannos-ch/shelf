@@ -248,7 +248,8 @@ kbd {
   display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 0 12px; border: 0; background: none;
   font: inherit; text-align: left; white-space: nowrap; color: var(--text); cursor: pointer;
 }
-.gc:hover, .gc.on { background: var(--hover); }
+.gc:hover, .gc.on, .gc.kb, .gf.kb { background: var(--hover); }
+.gc.kb, .gf.kb { box-shadow: inset 2px 0 var(--accent); }
 .gc .ic { position: relative; align-self: stretch; flex: none; width: 9px; }
 .gc .ic::before { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--muted); }
 .gcs > .gc:first-child .ic::before { top: 50%; }
