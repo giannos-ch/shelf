@@ -94,12 +94,14 @@
       {#if files?.more}<div class="gf more">… {files.more} more</div>{/if}
     {/if}
     <div class="gh" role="none" onmouseenter={clearSoon}>{git.ahead ? `Commits · ${git.ahead} unpushed` : 'Commits'}</div>
+    <div class="gcs" role="none">
     {#each log?.commits ?? [] as c (c.sha)}
-      <button class="gc" class:pushed={!c.unpushed} class:on={detail?.sha === c.sha} role="menuitem" onpointerdown={nodown}
+      <button class="gc" class:local={c.local} class:on={detail?.sha === c.sha} role="menuitem" onpointerdown={nodown}
         onmouseenter={(e) => hoverCommit(c, e)} onmouseleave={() => clearTimeout(intent)} onclick={() => run('git show ' + c.sha)}>
-        <span class="ic">{c.unpushed ? '↑' : '•'}</span><span class="sha">{c.short}</span><span class="p">{c.subject}</span><span class="when">{c.when}</span>
+        <span class="ic"></span><span class="sha">{c.short}</span><span class="p">{c.subject}</span><span class="when">{c.when}</span>
       </button>
     {/each}
+    </div>
     {#if !log || log.more}
       <button class="gf older" role="menuitem" onpointerdown={nodown} onmouseenter={clearSoon} onclick={() => (older += 10)}>Show older commits…</button>
     {/if}

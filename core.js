@@ -347,17 +347,17 @@ class Session extends EventEmitter {
 
   // Opens a file the UI found with stat. The path comes from program output: it only ever becomes one
   // argument of an argv (never shell text), and a terminal editor's command is quoted word by word.
-  // The newest `n` commits on HEAD, each flagged when it isn't on the upstream yet.
+  // The newest `n` commits on HEAD, each flagged when no remote branch contains it.
   async gitLog(msg) {
     const dir = this.stateFor(msg.tab).cwd, n = Math.min(Math.max(msg.n | 0, 1), 500);
-    const [log, ahead] = await Promise.all([
+    const [log, local] = await Promise.all([
       gitOut(dir, ['log', '-n', String(n), '--format=%H%x1f%h%x1f%s%x1f%an%x1f%ar']),
-      gitOut(dir, ['rev-list', '@{upstream}..HEAD']),
+      gitOut(dir, ['rev-list', 'HEAD', '--not', '--remotes']),
     ]);
-    const unpushed = new Set((ahead || '').split('\n'));
+    const onlyHere = new Set((local || '').split('\n'));
     const commits = (log || '').split('\n').filter(Boolean).map((l) => {
       const [sha, short, subject, author, when] = l.split('\x1f');
-      return { sha, short, subject, author, when, unpushed: unpushed.has(sha) };
+      return { sha, short, subject, author, when, local: onlyHere.has(sha) };
     });
     this.emit('message', { type: 'git-log', tab: msg.tab, commits, more: commits.length === n });
   }

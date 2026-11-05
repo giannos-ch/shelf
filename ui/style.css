@@ -249,11 +249,16 @@ kbd {
   font: inherit; text-align: left; white-space: nowrap; color: var(--text); cursor: pointer;
 }
 .gc:hover, .gc.on { background: var(--hover); }
-.gc .ic { width: 1ch; text-align: center; color: var(--accent); font-weight: 700; }
-.gc .sha, .gitdetail .sha { color: var(--run); }
+.gc .ic { position: relative; align-self: stretch; flex: none; width: 9px; }
+.gc .ic::before { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--muted); }
+.gcs > .gc:first-child .ic::before { top: 50%; }
+.gcs > .gc:last-child .ic::before { bottom: 50%; }
+.gc .ic::after { content: ''; position: absolute; top: 50%; left: 1px; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: var(--muted); }
+.gc.local .ic::after { background: var(--ok); }
+.gc .sha, .gitdetail .sha { color: var(--muted); }
+.gc.local .sha { color: var(--ok); }
 .gc .p { flex: 1; min-width: 0; max-width: 380px; overflow: hidden; text-overflow: ellipsis; }
 .gc .when { margin-left: 12px; font-size: 11px; color: var(--muted); }
-.gc.pushed .ic, .gc.pushed .sha { color: var(--muted); }
 .gf.older { color: var(--accent); }
 .gitdetail { width: 420px; max-width: 45vw; }
 .gitdiff { width: 640px; max-width: 55vw; }
