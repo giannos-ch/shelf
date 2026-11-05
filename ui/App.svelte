@@ -136,6 +136,8 @@
           <h3>Mouse</h3>
           <div class="row"><kbd>click</kbd><span>Focus a terminal, ready to type</span></div>
           <div class="row"><kbd>drag output</kbd><span>Select text (Shift+drag in programs that use the mouse)</span></div>
+          <div class="row"><kbd>middle click</kbd><span>Copy the selection to the pane's prompt (the main prompt while it runs)</span></div>
+          <div class="row"><kbd>drag selection</kbd><span>Drop it into any prompt or terminal</span></div>
           <div class="row"><kbd>drag header</kbd><span>Dock next to a terminal, a window edge, or onto a tab</span></div>
           <div class="row"><kbd>drag gap</kbd><span>Resize</span></div>
           <div class="row"><kbd>drag tab</kbd><span>Reorder tabs</span></div>

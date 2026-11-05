@@ -8,7 +8,7 @@
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
   import { suggest, hideSuggest, navKey, record, recall, expandBang } from './history.js';
-  import { ui, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, els, insertText, termSelection, startTextDrag, dropText, shownTerm, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
@@ -104,6 +104,33 @@
   // use and then only hidden: xterm throws if a terminal is disposed right after it opens.
   let viewed = $state(false);
   $effect(() => { if (pane.viewing != null) viewed = true; });
+  function overSelection(term, e) {
+    const pos = term.getSelectionPosition();
+    if (!pos) return false;
+    const r = term.element.querySelector('.xterm-screen').getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / (r.width / term.cols));
+    const y = Math.floor((e.clientY - r.top) / (r.height / term.rows)) + term.buffer.active.viewportY;
+    if (x < 0 || x >= term.cols) return false;
+    const at = y * term.cols + x;
+    return at >= pos.start.y * term.cols + pos.start.x && at < pos.end.y * term.cols + pos.end.x;
+  }
+
+  // Middle click copies the selection to this pane's prompt (the main one while it runs); pressing on it drags it.
+  // While there is one, hover isn't reported to the program: xterm clears the selection on any report.
+  function bodyMousedown(e) {
+    if (e.button === 1) {
+      const text = termSelection(pane.id);
+      if (!text) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.addEventListener('mouseup', (ev) => { ev.preventDefault(); ev.stopPropagation(); }, { capture: true, once: true });
+      insertText(pane.status === 'running' ? els.prompt : inputEl, text);
+    } else if (e.button === 0 && !e.shiftKey && !e.altKey) {
+      const term = shownTerm(pane.id);
+      if (term?.hasSelection() && overSelection(term, e)) startTextDrag(e, term, term.getSelection());
+    }
+  }
+
   function history(node, run) {
     const { term, fit } = makeTerm(node, false);
     const entry = terms.get(pane.id);
@@ -127,7 +154,10 @@
   class:dragging={ui.drag?.id === pane.id}
   hidden={!rect}
   style:left="{rect?.x}px" style:top="{rect?.y}px" style:width="{rect?.w}px" style:height="{rect?.h}px"
+  data-pane={pane.id}
   onpointerdowncapture={() => !focused && focusPane(pane.id)}
+  ondragover={(e) => e.dataTransfer.types.includes('text/plain') && !e.target.closest('input') && e.preventDefault()}
+  ondrop={(e) => { if (e.target.closest('input')) return; e.preventDefault(); dropText(e.dataTransfer.getData('text/plain'), e.currentTarget); }}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <header class="pane-head" onpointerdown={(e) => !e.target.closest('button') && startDrag(e, pane.id)} ondblclick={(e) => !e.target.closest('button') && toggleMax()}>
@@ -157,7 +187,9 @@
       {/each}
     </ul>
   {/if}
-  <div class="pane-body">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="pane-body" onmousedowncapture={bodyMousedown}
+    onmousemovecapture={(e) => !e.buttons && shownTerm(pane.id)?.hasSelection() && e.stopPropagation()}>
     <div class="term" class:hidden={pane.viewing != null} use:xterm></div>
     {#if viewed}<div class="term view" class:hidden={pane.viewing == null} use:history={shown}></div>{/if}
     {#if shown.status !== 'running' && (shown === pane ? !pane.gotOutput : !shown.data)}<div class="noout">no output</div>{/if}

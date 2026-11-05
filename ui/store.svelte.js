@@ -504,6 +504,51 @@ export function startDrag(e, id) {
   window.addEventListener('pointerup', up, { once: true });
 }
 
+export function insertText(el, text) {
+  if (!el || !text) return;
+  el.focus();
+  document.execCommand('insertText', false, text);
+}
+
+// The selection in a pane's terminal, else in any terminal.
+export function termSelection(id) {
+  const own = shownTerm(id);
+  if (own?.hasSelection()) return own.getSelection();
+  for (const t of terms.values()) for (const x of [t.term, t.view]) if (x?.hasSelection()) return x.getSelection();
+  return '';
+}
+
+// Text dropped on a prompt is typed into it; on a running terminal it is pasted to the program.
+export function dropText(text, target) {
+  if (!text || !target) return;
+  if (target.closest('#prompt')) return insertText(els.prompt, text);
+  const id = target.closest('[data-pane]')?.dataset.pane, p = paneById(id), t = terms.get(id);
+  if (!p || !t) return;
+  if (p.status !== 'running') return insertText(t.input, text);
+  focusPane(id);
+  t.term.paste(text);
+}
+
+export function startTextDrag(e, term, text) {
+  e.preventDefault();
+  e.stopPropagation();
+  const sx = e.clientX, sy = e.clientY;
+  let on = false;
+  const move = (ev) => {
+    if (!on && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) < 5) return;
+    on = true;
+    ui.drag = { x: ev.clientX, y: ev.clientY, label: text };
+  };
+  const up = (ev) => {
+    window.removeEventListener('pointermove', move);
+    ui.drag = null;
+    if (on) dropText(text, document.elementFromPoint(ev.clientX, ev.clientY));
+    else term.clearSelection();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up, { once: true });
+}
+
 // Reorders live: the tab goes after every other tab whose middle is left of the pointer.
 export function startTabDrag(e, id) {
   if (e.button !== 0) return;
