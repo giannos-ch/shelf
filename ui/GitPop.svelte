@@ -46,12 +46,13 @@
     clearTimeout(intent);
     if (f.path.endsWith('/')) return sha ? (intent = setTimeout(() => (diff = null), 150)) : clearSoon();
     const r = e.currentTarget.getBoundingClientRect();
-    const showDiff = () => {
-      if (!sha) detail = null;
-      diff = { path: f.path, sha, ...beside(r, sha ? detailBox : box) };
-      send({ type: 'git-diff', tab: ui.active, path: f.path, sha, untracked: f.xy === '??' });
-    };
+    const showDiff = () => openDiff(f, r, sha);
     if (!(sha ? diff : detail || diff)) showDiff(); else intent = setTimeout(showDiff, 150);
+  }
+  function openDiff(f, r, sha) {
+    if (!sha) detail = null;
+    diff = { path: f.path, sha, ...beside(r, sha ? detailBox : box) };
+    send({ type: 'git-diff', tab: ui.active, path: f.path, sha, untracked: f.xy === '??' });
   }
   function showCommit(c, r) {
     copied = false;
