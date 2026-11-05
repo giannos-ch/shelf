@@ -117,7 +117,6 @@
       <div class="gd-meta"><span class="sha">{detail.sha.slice(0, 12)}</span> · {info?.author ?? detail.c.author} · {info?.date ?? detail.c.when}</div>
       <div class="gd-acts">
         <button onpointerdown={nodown} onclick={copyHash}>{copied ? 'Copied ✓' : 'Copy hash'}</button>
-        <button onpointerdown={nodown} onclick={() => run('git show ' + detail.sha)}>Show diff</button>
       </div>
     </div>
     {#if !info}<div class="gf more">Loading…</div>
