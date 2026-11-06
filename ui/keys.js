@@ -132,7 +132,7 @@ export const SHORTCUTS = [
 
   { ctx: 'side', label: '↑ ↓', keys: ['ArrowUp', 'ArrowDown'], desc: 'Select a closed terminal', run: (k) => S.sideMove(k === 'ArrowUp' ? -1 : 1) },
   { ctx: 'side', label: 'Enter', keys: ['Enter'], desc: 'Reopen it', run: () => S.sideAct(S.reopen) },
-  { ctx: 'side', label: 'k', keys: ['KeyK'], desc: 'Kill it (it is removed once it exits)', run: () => S.sideAct(S.kill) },
+  { ctx: 'side', label: 'k', keys: ['KeyK'], desc: 'Kill it and remove it from the list', run: () => S.sideAct(S.destroy) },
   { ctx: 'side', label: 'Esc', keys: ['Escape'], desc: 'Close the list and go back to where you were', run: S.closeSidebar },
 ];
 

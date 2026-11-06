@@ -129,8 +129,7 @@ function onMessage(m) {
 
 function finish(p, code, ms, reason = null, typed = '') {
   Object.assign(p, { status: code === 0 ? 'ok' : 'err', code, ms: ms ?? Date.now() - p.started, reason });
-  // The closed list only holds running terminals.
-  if (p.closed) return destroy(p);
+  if (reason !== 'disconnected') notify(p, code === 0 ? 'done' : `exit ${code}`);
   const t = terms.get(p.id);
   // ponytail: each run's raw output is kept whole for the pane's lifetime, capped at 50 runs; trim data if memory matters.
   p.runs.push({ cmd: p.cmd, cwd: p.runCwd, status: p.status, code, ms: p.ms, reason, data: t?.buf ?? '' });
@@ -145,6 +144,15 @@ function finish(p, code, ms, reason = null, typed = '') {
   // Focus follows the terminal into its own prompt.
   if (selected() === p) refocus();
 }
+
+// ------------------------------------------------------- notifications
+// Flags a terminal (OSC 9/777, bell, finished) unless it is the one being looked at; looking at it clears the flag.
+export function notify(p, text) {
+  if (document.hasFocus() && ui.mode === 'pane' && selected() === p && !p.closed) return;
+  p.notify = text;
+}
+export const tabNotified = (t) => ui.panes.some((p) => p.tab === t.id && !p.closed && p.notify);
+window.addEventListener('focus', () => { const p = selected(); if (p && ui.mode === 'pane') p.notify = null; });
 
 // ---------------------------------------------------------------- focus
 export function focusPrompt() {
@@ -241,7 +249,7 @@ export async function runCommand(cmd, focus = false, inPane = false) {
 
 function addPane(tab, cmd, cwd) {
   const id = 'p' + (++paneSeq);
-  ui.panes.push({ id, tab: tab.id, cmd, cmds: [cmd], runs: [], viewing: null, cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
+  ui.panes.push({ id, tab: tab.id, cmd, cmds: [cmd], runs: [], viewing: null, cwd, runCwd: cwd, status: 'running', closed: false, closedAt: 0, pinned: false, notify: null, started: Date.now(), gotOutput: false, code: null, ms: null, reason: null });
   return id;
 }
 
@@ -268,6 +276,7 @@ export function select(id) {
   const tab = activeTab();
   if (!tab || !id) return;
   setSelected(tab, id);
+  paneById(id).notify = null;
   if (tab.maximized) tab.maximized = id;
 }
 
@@ -283,12 +292,13 @@ export function closePane(p = selected()) {
 export async function reopen(p = closedPanes()[0]) {
   if (!p) return;
   p.closed = false;
+  p.notify = null;
   p.tab = ui.active;
   insertInto(activeTab(), p.id);
   refocus();
 }
 
-function destroy(p) {
+export function destroy(p) {
   if (!p) return;
   if (p.status === 'running') send({ type: 'kill', id: p.id });
   if (!p.closed) detach(p);

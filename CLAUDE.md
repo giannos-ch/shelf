@@ -33,6 +33,7 @@ Shelf is a terminal where the prompt is a text box and each command runs in its 
   - Panes render as one flat keyed list, absolutely positioned from the tree's rects, so xterm never remounts when the layout changes.
   - Focus: keys go to one place, the main prompt or one pane (`ui.mode`: `prompt` / `pane` / `side` for the closed list); the focused pane is the tab's `selected` one, and a running pane gets every key the app doesn't claim, Esc included. `Ctrl+;` opens a one-key command layer (`ui.layer`).
   - File links: `paths.js` is the pure matcher (one line of text → `{start, end, path, line?, col?}`, checked by `paths.check.js`); `links.js` joins soft-wrapped rows, asks core's `stat` message which paths exist (resolved against `pane.runCwd`, then its git root) and sends `open`. `Ctrl+;` `o` shows link hints (`ui.hints`).
+  - Notifications: OSC 9, OSC 777 `notify`, a bell, or a command finishing while not looked at set `pane.notify` (`notify()` in the store), which flags the pane, its tab or the closed list until the pane is selected or reopened. In-app only, nothing goes to the OS. Closed commands that finish stay in the closed list; its ✕/`k` removes them (`destroy`).
   - No per-command special cases, except a bare `cd <dir>` which just changes the tab's cwd (`Session.cd`); anything fancier, or a failing cd, runs in a pane.
 
 ### State carry-over between commands

@@ -8,7 +8,7 @@
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
   import { suggest, hideSuggest, navKey, record, recall, expandBang } from './history.js';
-  import { ui, els, insertText, termSelection, startTextDrag, dropText, shownTerm, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur } from './store.svelte.js';
+  import { ui, els, insertText, termSelection, startTextDrag, dropText, shownTerm, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur, notify } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
@@ -87,6 +87,14 @@
     const { term, fit, align } = makeTerm(node, true);
     const entry = { term, fit, align, lastSize: { cols: 0, rows: 0 }, buf: '' };
     terms.set(pane.id, entry);
+    // Programs asking for attention: OSC 9 (iTerm2; `9;<digit>;…` are ConEmu commands such as progress), OSC 777 notify, bell.
+    term.parser.registerOscHandler(9, (d) => { if (!/^\d;/.test(d)) notify(pane, d || 'notification'); return true; });
+    term.parser.registerOscHandler(777, (d) => {
+      const [kind, title, body] = d.split(';');
+      if (kind === 'notify') notify(pane, body || title || 'notification');
+      return true;
+    });
+    term.onBell(() => notify(pane, 'bell'));
     // Keys and mouse reports reach the program only while this terminal has focus and is on screen.
     term.onData((data) => {
       if (ui.mode === 'pane' && activeTab()?.selected === pane.id && pane.status === 'running' && pane.viewing == null) send({ type: 'input', id: pane.id, data });
@@ -150,6 +158,7 @@
 <section
   class="pane"
   class:focused
+  class:notify={pane.notify}
   class:last={selected && !focused}
   class:dragging={ui.drag?.id === pane.id}
   hidden={!rect}
@@ -164,6 +173,7 @@
     <span class="dot {shown.status}"></span>
     <span class="cmd" title={shown.cmd}>{oneLine(shown.cmd)}</span>
     {#if pane.viewing != null}<span class="tag">history</span>{/if}
+    {#if pane.notify}<span class="tag notify" title={pane.notify}>{pane.notify}</span>{/if}
     <span class="meta">{meta}{#if badge}{' · '}<span class="code">{badge}</span>{/if}</span>
     <span class="btns">
       {#if rows.length > 1}

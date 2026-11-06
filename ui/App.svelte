@@ -7,7 +7,7 @@
   import { platform, send } from './conn.js';
   import {
     ui, els, init, activeTab, tabById, closedPanes, layoutOf, tabTitle, tilde, focusPrompt,
-    newTab, closeTab, gotoTab, startTabDrag, reopen, kill, startResize, openSidebar, closeSidebar, openSettings,
+    newTab, closeTab, gotoTab, startTabDrag, reopen, destroy, tabNotified, startResize, openSidebar, closeSidebar, openSettings,
   } from './store.svelte.js';
 
   let desk;
@@ -29,12 +29,12 @@
 <!-- mousedown is cancelled so clicks here leave the keyboard where it was -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <nav id="tabs" onmousedown={(e) => e.preventDefault()}>
-  <button class="side-toggle" class:on={ui.sidebar} title="Closed terminals (Ctrl+; b)" onclick={() => (ui.sidebar ? closeSidebar() : openSidebar())}>
+  <button class="side-toggle" class:on={ui.sidebar} class:notify={closed.some((p) => p.notify)} title="Closed terminals (Ctrl+; b)" onclick={() => (ui.sidebar ? closeSidebar() : openSidebar())}>
     ☰{#if closed.length}<span class="count">{closed.length}</span>{/if}
   </button>
   {#each ui.tabs as t, i (t.id)}
     <div
-      class="tab" class:active={t.id === ui.active} class:drop={ui.drag?.tab === t.id}
+      class="tab" class:active={t.id === ui.active} class:notify={tabNotified(t)} class:drop={ui.drag?.tab === t.id}
       data-tab={t.id} title={t.cwd} role="tab" tabindex="-1" aria-selected={t.id === ui.active}
       onclick={() => gotoTab(i)} onkeydown={() => {}} onpointerdown={(e) => startTabDrag(e, t.id)}
       onauxclick={(e) => e.button === 1 && closeTab(t.id)}
@@ -57,16 +57,17 @@
     <aside id="sidebar" onmousedown={(e) => e.preventDefault()}>
       <div class="side-head">Closed <span class="muted">· Ctrl+; b to select · Enter reopens</span></div>
       {#each closed as p (p.id)}
-        <div class="closed-item" class:sel={ui.mode === 'side' && ui.sideSel === p.id} title="{p.cmd}&#10;{p.cwd}">
+        <div class="closed-item" class:notify={p.notify} class:sel={ui.mode === 'side' && ui.sideSel === p.id} title="{p.cmd}&#10;{p.cwd}">
           <button class="reopen" onclick={() => reopen(p)}>
             <span class="dot {p.status}"></span>
             <span class="cmd">{p.cmd.replace(/\n/g, ' ⏎ ')}</span>
+            {#if p.notify}<span class="tag notify">{p.notify}</span>{/if}
             <span class="where">{tilde(p.cwd)}</span>
           </button>
-          <button class="x" title="Kill" onclick={() => kill(p)}>✕</button>
+          <button class="x" title="{p.status === 'running' ? 'Kill and remove' : 'Remove'} (k)" onclick={() => destroy(p)}>✕</button>
         </div>
       {:else}
-        <div class="side-empty">Running terminals you close (Ctrl+Q) keep running here.</div>
+        <div class="side-empty">Running terminals you close (Ctrl+Q) keep running here, and stay once they finish.</div>
       {/each}
     </aside>
   {/if}

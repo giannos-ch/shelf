@@ -146,7 +146,14 @@ kbd {
 .btns button.close:hover { background: rgba(248,81,73,.18); color: var(--err); }
 .btns button.on { background: var(--hover); color: var(--text); }
 .btns button:disabled { opacity: .35; cursor: default; }
-.pane-head .tag { font-size: 10.5px; color: var(--accent); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; flex: none; }
+.pane-head .tag, .closed-item .tag { font-size: 10.5px; color: var(--accent); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; flex: none; }
+.tag.notify { color: var(--run); max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.closed-item .tag { grid-column: 2; justify-self: start; max-width: 100%; }
+/* Flagged (OSC 9/777, bell, finished out of view) until looked at. */
+.pane.notify:not(.focused) { border-color: var(--run); box-shadow: 0 0 0 1px var(--run); }
+.tab.notify .name, .side-toggle.notify { color: var(--run); }
+.tab.notify::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--run); flex: none; }
+.closed-item.notify { box-shadow: inset 2px 0 0 var(--run); }
 .runs {
   position: absolute; top: 30px; right: 4px; z-index: 5; margin: 0; padding: 4px; list-style: none;
   width: min(420px, calc(100% - 8px)); max-height: 60%; overflow-y: auto;
