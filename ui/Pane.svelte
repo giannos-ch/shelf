@@ -166,6 +166,7 @@
   style:left="{rect?.x}px" style:top="{rect?.y}px" style:width="{rect?.w}px" style:height="{rect?.h}px"
   data-pane={pane.id}
   onpointerdowncapture={() => !focused && focusPane(pane.id)}
+  onmousedown={(e) => !e.target.closest('input') && e.preventDefault()}
   ondragover={(e) => e.dataTransfer.types.includes('text/plain') && !e.target.closest('input') && e.preventDefault()}
   ondrop={(e) => { if (e.target.closest('input')) return; e.preventDefault(); dropText(e.dataTransfer.getData('text/plain'), e.currentTarget); }}
 >
