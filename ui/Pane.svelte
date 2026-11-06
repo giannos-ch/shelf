@@ -155,6 +155,7 @@
 
 <svelte:window onpointerdown={(e) => menuOpen && !e.target.closest('.runs, .hist') && (ui.runs = null)} />
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <section
   class="pane"
   class:focused

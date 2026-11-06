@@ -9,7 +9,7 @@
   const git = $derived(activeTab()?.git);
   let pos = $state(null), older = $state(0), log = $state(null), files = $state(null), detail = $state(null), diff = $state(null), copied = $state(false);
   const shown = {};   // sha → git-show reply
-  let timer, box, detailBox, diffBox;
+  let timer, box = $state(), detailBox = $state(), diffBox = $state();
   let sel = $state(0), dsel = $state(0);   // keyboard rows (Ctrl+; g) in the main and commit popups
 
   // Closing waits a moment so the pointer can cross the gaps between pill and popups.
