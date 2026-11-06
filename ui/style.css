@@ -160,7 +160,7 @@ kbd {
 .runs .cmd { font: 12px var(--mono); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .pane-body { position: relative; flex: 1; min-height: 0; padding: 6px 4px 4px 10px; }
-.pane-body .term { width: 100%; height: 100%; }
+.pane-body .term { width: 100%; height: 100%; overflow: hidden; }
 .pane-body .term.hidden { visibility: hidden; }
 .pane-body .term.view { position: absolute; inset: 6px 4px 4px 10px; width: auto; height: auto; }
 .pane-body .noout { position: absolute; left: 12px; top: 6px; color: var(--muted); font: italic 12px var(--mono); }
