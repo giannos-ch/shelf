@@ -60,6 +60,7 @@
     },
     "linux": {
       "category": "Development",
+      "syncDesktopName": true,
       "icon": "build/icons",
       "target": [
         "AppImage",
@@ -67,5 +68,7 @@
       ]
     }
   },
+  "desktopName": "shelf-terminal.desktop",
+  "author": "Giannos Chatziagapis <giannos.chatziagapis@gmail.com>",
   "license": "MIT"
 }
