@@ -328,12 +328,15 @@ export function paste(p = selected()) {
   });
 }
 
+// Runs the command on screen again: the pane's own, or the earlier run being viewed.
 export function rerun(p = selected()) {
   const t = p && terms.get(p.id);
   if (!t) return;
+  const old = p.viewing != null && p.runs[p.viewing];
   if (p.status === 'running') send({ type: 'kill', id: p.id });
+  if (old && old.cmd !== p.cmd) { p.cmd = old.cmd; p.cmds.push(p.cmd); }
   t.term.reset();
-  start(p.id, p.runCwd);
+  start(p.id, old ? old.cwd : p.runCwd);
 }
 
 // Run another command in a finished terminal, replacing its output, where the last one ended.
