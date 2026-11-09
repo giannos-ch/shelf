@@ -8,7 +8,7 @@
   import Completions from './Completions.svelte';
   import HistorySearch from './HistorySearch.svelte';
   import { suggest, hideSuggest, navKey, record, recall, expandBang } from './history.js';
-  import { ui, els, insertText, termSelection, startTextDrag, dropText, shownTerm, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur, notify } from './store.svelte.js';
+  import { ui, els, insertText, termSelection, startTextDrag, dropText, shownTerm, terms, termOptions, refit, activeTab, select, focusPane, rerun, runInPane, viewRun, closePane, toggleMax, togglePin, startDrag, tilde, fmtDur, fmtAgo, notify } from './store.svelte.js';
 
   let { pane, rect, selected, maximized } = $props();
   let inputEl = $state();
@@ -194,7 +194,7 @@
         <li><button class:on={onScreen === i} title={r.cmd} onmouseenter={() => viewRun(pane, i)} onclick={() => pick(i)}>
           <span class="dot {r.status}"></span>
           <span class="cmd">{oneLine(r.cmd)}</span>
-          <span class="meta">{fmtDur(r === pane ? Math.max(0, ui.now - pane.started) : r.ms)}{#if runBadge(r)}{' · '}<span class="code">{runBadge(r)}</span>{/if}</span>
+          <span class="meta" title={new Date(r.started).toLocaleString()}>{r === pane ? 'running' : fmtAgo(r.started)}{#if runBadge(r)}{' · '}<span class="code">{runBadge(r)}</span>{/if}</span>
         </button></li>
       {/each}
     </ul>

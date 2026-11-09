@@ -53,6 +53,14 @@ export function fmtDur(ms) {
   if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
   return `${Math.floor(s / 60)}m${String(Math.floor(s % 60)).padStart(2, '0')}s`;
 }
+// When something happened, git-log style: "just now", "5 minutes ago", "2 days ago".
+export function fmtAgo(t) {
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 10) return 'just now';
+  for (const [n, u] of [[86400, 'day'], [3600, 'hour'], [60, 'minute'], [1, 'second']]) {
+    if (s >= n) { const v = Math.floor(s / n); return `${v} ${u}${v > 1 ? 's' : ''} ago`; }
+  }
+}
 
 const box = () => ({ x: L.GAP, y: L.GAP, w: Math.max(0, ui.desk.w - 2 * L.GAP), h: Math.max(0, ui.desk.h - 2 * L.GAP) });
 const fullRects = (tab) => L.rects(tab.tree, box()).panes;
@@ -132,7 +140,7 @@ function finish(p, code, ms, reason = null, typed = '') {
   if (reason !== 'disconnected') notify(p, code === 0 ? 'done' : `exit ${code}`);
   const t = terms.get(p.id);
   // ponytail: each run's raw output is kept whole for the pane's lifetime, capped at 50 runs; trim data if memory matters.
-  p.runs.push({ cmd: p.cmd, cwd: p.runCwd, status: p.status, code, ms: p.ms, reason, data: t?.buf ?? '' });
+  p.runs.push({ cmd: p.cmd, cwd: p.runCwd, status: p.status, code, ms: p.ms, started: p.started, reason, data: t?.buf ?? '' });
   if (p.runs.length > 50) { p.runs.shift(); if (p.viewing != null) p.viewing = p.viewing ? p.viewing - 1 : null; }
   if (t) {
     t.term.options.disableStdin = true;
