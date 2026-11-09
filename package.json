@@ -38,6 +38,7 @@
   "build": {
     "appId": "dev.shelfterminal.app",
     "productName": "Shelf",
+    "icon": "build/icon.png",
     "files": [
       "main.js",
       "preload.js",
@@ -59,6 +60,7 @@
     },
     "linux": {
       "category": "Development",
+      "icon": "build/icons",
       "target": [
         "AppImage",
         "deb"
