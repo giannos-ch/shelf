@@ -76,7 +76,7 @@
         used = live && pane.status === 'running' ? b.cursorY + 1 : 0;
         for (let y = term.rows - 1; y >= used; y--) if (b.getLine(y)?.translateToString(true)) { used = y + 1; break; }
       }
-      const ch = term.element.querySelector('.xterm-screen').offsetHeight / term.rows;
+      const ch = term.element.querySelector('.xterm-screen').offsetHeight / (term.element.querySelector('.xterm-rows')?.childElementCount || term.rows);
       term.element.style.transform = used < term.rows ? `translateY(${(term.rows - used) * ch}px)` : '';
     };
     term.onRender(align);

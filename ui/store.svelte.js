@@ -99,6 +99,7 @@ export function refit(id) {
   const t = terms.get(id), p = paneById(id);
   if (!t?.term.element?.clientWidth || !t.term.element.clientHeight) return;
   try { t.fit.fit(); } catch { return; }
+  t.align?.();
   const { cols, rows } = t.term;
   if (p?.status === 'running' && (cols !== t.lastSize.cols || rows !== t.lastSize.rows)) send({ type: 'resize', id, cols, rows });
   t.lastSize = { cols, rows };
