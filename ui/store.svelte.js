@@ -466,6 +466,8 @@ export function shiftTab(d) { gotoTab((activeIndex() + d + ui.tabs.length) % ui.
 export function closeTab(id = ui.active) {
   const tab = tabById(id);
   if (!tab) return;
+  const n = L.leaves(tab.tree).filter((pid) => paneById(pid)?.status === 'running').length;
+  if (n && !confirm(`${n} command${n > 1 ? 's are' : ' is'} still running in this tab.\nClose it? They keep running in the closed list.`)) return refocus();
   for (const pid of L.leaves(tab.tree)) closePane(paneById(pid));
   if (ui.tabs.length === 1) newTab();
   const i = ui.tabs.indexOf(tab);
