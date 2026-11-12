@@ -64,7 +64,19 @@
       "icon": "build/icons",
       "target": [
         "AppImage",
+        "pacman",
         "deb"
+      ]
+    },
+    "pacman": {
+      "depends": [
+        "gtk3",
+        "nss",
+        "alsa-lib",
+        "libxss",
+        "libxtst",
+        "libnotify",
+        "xdg-utils"
       ]
     }
   },
