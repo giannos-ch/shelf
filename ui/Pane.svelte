@@ -207,9 +207,9 @@
     {#if shown.status !== 'running' && (shown === pane ? !pane.gotOutput : !shown.data)}<div class="noout">no output</div>{/if}
   </div>
   {#if pane.status !== 'running'}
-    {#if ui.comp && ui.comp.input === inputEl}<Completions />{/if}
-    {#if ui.hsearch && ui.hsearch.input === inputEl}<HistorySearch />{/if}
     <div class="pane-prompt">
+      {#if ui.comp && ui.comp.input === inputEl}<Completions />{/if}
+      {#if ui.hsearch && ui.hsearch.input === inputEl}<HistorySearch />{/if}
       <span class="where"><bdi>{tilde(pane.cwd)} ❯</bdi></span>
       <input
         bind:this={inputEl} spellcheck="false" autocomplete="off" placeholder="run here…  (Esc: back to the main prompt)"
