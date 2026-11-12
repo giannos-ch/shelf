@@ -263,16 +263,16 @@ function addPane(tab, cmd, cwd) {
 }
 
 // Run the terminal's command again in a new terminal beside it, split along its longer side.
-export async function duplicate(p = selected()) {
+export async function duplicate(p = selected(), cmd = p?.cmd, cwd = p?.runCwd) {
   const tab = activeTab();
   if (!p || !tab) return;
   const r = fullRects(tab).get(p.id);
-  const id = addPane(tab, p.cmd, p.runCwd);
+  const id = addPane(tab, cmd, cwd);
   tab.tree = L.insert(tab.tree, p.id, id, r && r.w > r.h * 2 ? 'right' : 'bottom');
   setSelected(tab, id);
   tab.maximized = null;
   await tick();
-  start(id, p.runCwd);
+  start(id, cwd);
   refocus();
 }
 
@@ -329,11 +329,13 @@ export function paste(p = selected()) {
   });
 }
 
-// Runs the command on screen again: the pane's own, or the earlier run being viewed.
+// Runs the command on screen again: the pane's own, or the earlier run being viewed
+// (beside it, if the pane's own command is still running).
 export function rerun(p = selected()) {
   const t = p && terms.get(p.id);
   if (!t) return;
   const old = p.viewing != null && p.runs[p.viewing];
+  if (old && p.status === 'running') return duplicate(p, old.cmd, old.cwd);
   if (p.status === 'running') send({ type: 'kill', id: p.id });
   if (old && old.cmd !== p.cmd) { p.cmd = old.cmd; p.cmds.push(p.cmd); }
   t.term.reset();
